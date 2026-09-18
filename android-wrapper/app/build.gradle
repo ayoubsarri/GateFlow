@@ -1,0 +1,21 @@
+apply plugin: "com.android.application"
+
+android {
+    namespace "org.inasdz.checkin"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "org.inasdz.checkin"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+}

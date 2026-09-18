@@ -1,0 +1,45 @@
+# Dependencies & Build Artifacts
+node_modules/
+dist/
+functions/lib/
+functions/node_modules/
+*.tsbuildinfo
+coverage/
+
+# Local Environment & Secrets
+.env
+.env.local
+.env.*.local
+functions/.env
+functions/.env.*.local
+
+# STRICT DATABASE EXCLUSION (Never commit backups or database exports)
+backups/
+*.backup
+*.dump
+firestore_backup_*
+
+# Firebase internal state & debug logs
+.firebase/
+firebase-debug*.log
+firestore-debug*.log
+ui-debug*.log
+
+# Native Mobile Wrappers & Credentials
+android/.gradle/
+android/app/build/
+android/local.properties
+firebase-config/
+*.jks
+*.keystore
+
+# Temporary and local test outputs
+test-qr/
+tmp/
+scratch/
+
+# OS and IDE Metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

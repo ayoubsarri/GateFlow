@@ -1,0 +1,313 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function staffPath() {
+      return /databases/$(database)/documents/staff/$(request.auth.uid);
+    }
+
+    function isStaff(eventId) {
+      return request.auth != null
+        && exists(staffPath())
+        && get(staffPath()).data.active == true
+        && get(staffPath()).data.eventId == eventId
+        && get(staffPath()).data.entrance in ['A', 'B', 'C', 'D'];
+    }
+
+    function entrance() {
+      return get(staffPath()).data.entrance;
+    }
+
+    match /staff/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
+    match /events/{eventId} {
+      allow get: if isStaff(eventId);
+      allow list, create, update, delete: if false;
+
+      match /rosters/{rosterId} {
+        allow read: if isStaff(eventId);
+        allow write: if false;
+
+        match /participants/{participantId} {
+          allow read: if isStaff(eventId)
+            && get(/databases/$(database)/documents/events/$(eventId)).data.activeRosterId == rosterId;
+
+          allow update: if isStaff(eventId)
+            && get(/databases/$(database)/documents/events/$(eventId)).data.activeRosterId == rosterId
+            && (
+              (
+                get(/databases/$(database)/documents/events/$(eventId)).data.status == 'live'
+                && resource.data.status == 'accepted'
+                && resource.data.checkedInAt == null
+                && request.resource.data.status == 'accepted'
+                && request.resource.data.checkedInAt == request.time
+                && request.resource.data.checkInId is string
+                && request.resource.data.stationName == entrance()
+                && request.resource.data.checkInMethod in ['qr', 'manual']
+                && request.resource.data.updatedAt == request.time
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                  'checkedInAt', 'checkInId', 'stationName', 'checkInMethod', 'updatedAt'
+                ])
+                && getAfter(/databases/$(database)/documents/events/$(eventId)/checkins/$(request.resource.data.checkInId)).data.active == true
+                && getAfter(/databases/$(database)/documents/events/$(eventId)/checkins/$(request.resource.data.checkInId)).data.participantId == participantId
+                && getAfter(/databases/$(database)/documents/events/$(eventId)/checkins/$(request.resource.data.checkInId)).data.rosterId == rosterId
+              )
+              ||
+              (
+                resource.data.checkedInAt != null
+                && resource.data.checkInId is string
+                && request.resource.data.checkedInAt == null
+                && request.resource.data.checkInId == null
+                && request.resource.data.stationName == null
+                && request.resource.data.checkInMethod == null
+                && request.resource.data.updatedAt == request.time
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                  'checkedInAt', 'checkInId', 'stationName', 'checkInMethod', 'updatedAt'
+                ])
+                && getAfter(/databases/$(database)/documents/events/$(eventId)/checkins/$(resource.data.checkInId)).data.active == false
+              )
+              ||
+              (
+                resource.data.status == 'accepted'
+                && resource.data.checkedInAt == null
+                && request.resource.data.status == 'revoked'
+                && request.resource.data.revokedAt == request.time
+                && request.resource.data.revokeReason is string
+                && request.resource.data.revokeReason.size() >= 3
+                && request.resource.data.revokeReason.size() <= 200
+                && request.resource.data.updatedAt == request.time
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                  'status', 'revokedAt', 'revokeReason', 'updatedAt'
+                ])
+              )
+              ||
+              (
+                resource.data.status == 'revoked'
+                && resource.data.checkedInAt == null
+                && request.resource.data.status == 'accepted'
+                && request.resource.data.revokedAt == null
+                && request.resource.data.revokeReason == null
+                && request.resource.data.restoreReason is string
+                && request.resource.data.restoreReason.size() >= 3
+                && request.resource.data.restoreReason.size() <= 200
+                && request.resource.data.restoredAt == request.time
+                && request.resource.data.updatedAt == request.time
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                  'status', 'revokedAt', 'revokeReason', 'restoreReason', 'restoredAt', 'updatedAt'
+                ])
+              )
+              ||
+              (
+                resource.data.checkedInAt == null
+                && request.resource.data.status == resource.data.status
+                && request.resource.data.checkedInAt == resource.data.checkedInAt
+                && request.resource.data.checkInId == resource.data.checkInId
+                && request.resource.data.stationName == resource.data.stationName
+                && request.resource.data.checkInMethod == resource.data.checkInMethod
+                && request.resource.data.ticketHash == resource.data.ticketHash
+                && request.resource.data.name is string
+                && request.resource.data.name.size() >= 2
+                && request.resource.data.name.size() <= 160
+                && request.resource.data.email is string
+                && request.resource.data.emailNormalized is string
+                && request.resource.data.nameTokens is list
+                && request.resource.data.updatedAt == request.time
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                  'name', 'email', 'emailNormalized', 'nameTokens', 'title', 'organization', 'updatedAt'
+                ])
+              )
+              ||
+              (
+                request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                  'inviteStatus', 'updatedAt'
+                ])
+                && request.resource.data.inviteStatus in ['pending', 'leased', 'sent', 'failed', 'unknown']
+                && request.resource.data.updatedAt == request.time
+              )
+              ||
+              (
+                request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                  'confirmationStatus', 'confirmedAt', 'confirmationUpdatedAt', 'confirmationNote', 'updatedAt'
+                ])
+                && resource.data.status == 'accepted'
+                && request.resource.data.confirmationStatus in ['unknown', 'confirmed', 'declined']
+                && (
+                  (
+                    request.resource.data.confirmationStatus == 'confirmed'
+                    && request.resource.data.confirmedAt == request.time
+                  )
+                  ||
+                  (
+                    request.resource.data.confirmationStatus in ['unknown', 'declined']
+                    && request.resource.data.confirmedAt == null
+                  )
+                )
+                && request.resource.data.confirmationUpdatedAt == request.time
+                && request.resource.data.confirmationNote is string
+                && request.resource.data.confirmationNote.size() >= 3
+                && request.resource.data.confirmationNote.size() <= 200
+                && request.resource.data.updatedAt == request.time
+              )
+            );
+
+          allow create: if isStaff(eventId)
+            && get(/databases/$(database)/documents/events/$(eventId)).data.activeRosterId == rosterId
+            && request.resource.data.keys().hasOnly([
+              'name', 'email', 'emailNormalized', 'nameTokens', 'title', 'organization',
+              'status', 'inviteStatus', 'confirmationStatus', 'confirmedAt', 'confirmationUpdatedAt', 'confirmationNote', 'ticketHash', 'checkedInAt', 'checkInId',
+              'stationName', 'checkInMethod', 'createdAt', 'updatedAt'
+            ])
+            && request.resource.data.name is string
+            && request.resource.data.name.size() >= 2
+            && request.resource.data.name.size() <= 160
+            && request.resource.data.email is string
+            && request.resource.data.emailNormalized is string
+            && request.resource.data.nameTokens is list
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.inviteStatus == 'pending'
+            && request.resource.data.confirmationStatus == 'unknown'
+            && request.resource.data.confirmedAt == null
+            && request.resource.data.confirmationUpdatedAt == null
+            && request.resource.data.confirmationNote == null
+            && request.resource.data.ticketHash is string
+            && request.resource.data.checkedInAt == null
+            && request.resource.data.checkInId == null
+            && request.resource.data.stationName == null
+            && request.resource.data.checkInMethod == null
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && getAfter(/databases/$(database)/documents/events/$(eventId)/ticketSecrets/$(request.resource.data.ticketHash)).data.participantId == participantId;
+
+          allow delete: if isStaff(eventId)
+            && get(/databases/$(database)/documents/events/$(eventId)).data.activeRosterId == rosterId
+            && resource.data.checkedInAt == null;
+        }
+      }
+
+      match /ticketSecrets/{ticketHash} {
+        allow get: if isStaff(eventId);
+        allow list: if isStaff(eventId) && request.query.limit <= 5;
+        allow create: if isStaff(eventId)
+          && request.resource.data.keys().hasOnly([
+            'participantId', 'rawToken', 'manualCode', 'manualCodeNormalized',
+            'qrBase64', 'createdAt', 'createdBy'
+          ])
+          && request.resource.data.participantId is string
+          && request.resource.data.rawToken is string
+          && request.resource.data.rawToken.size() == 64
+          && request.resource.data.manualCode is string
+          && request.resource.data.manualCode.size() >= 8
+          && request.resource.data.manualCode.size() <= 12
+          && request.resource.data.manualCodeNormalized is string
+          && request.resource.data.qrBase64 is string
+          && request.resource.data.qrBase64.size() <= 50000
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.createdBy == request.auth.uid;
+
+        allow update: if isStaff(eventId)
+          && get(/databases/$(database)/documents/events/$(eventId)).data.status == 'live'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'revokedAt', 'revokeReason', 'restoredAt'
+          ])
+          && (
+            (
+              request.resource.data.revokedAt == request.time
+              && request.resource.data.revokeReason is string
+              && request.resource.data.revokeReason.size() >= 3
+              && request.resource.data.revokeReason.size() <= 200
+            )
+            ||
+            (
+              request.resource.data.revokedAt == null
+              && request.resource.data.revokeReason == null
+              && request.resource.data.restoredAt == request.time
+            )
+          );
+        allow delete: if isStaff(eventId);
+      }
+
+      match /invitationJobs/{jobId} {
+        allow read: if isStaff(eventId);
+        allow create: if isStaff(eventId)
+          && request.resource.data.keys().hasOnly([
+            'participantId', 'rosterId', 'status', 'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.participantId == jobId
+          && request.resource.data.rosterId == get(/databases/$(database)/documents/events/$(eventId)).data.activeRosterId
+          && request.resource.data.status == 'pending'
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+        allow update: if false;
+        allow delete: if isStaff(eventId);
+      }
+
+      match /checkins/{checkInId} {
+        allow read: if isStaff(eventId);
+        allow create: if isStaff(eventId)
+          && get(/databases/$(database)/documents/events/$(eventId)).data.status == 'live'
+          && request.resource.data.keys().hasOnly([
+            'participantId', 'participantName', 'rosterId', 'stationName', 'method',
+            'checkedInAt', 'active', 'staffUid'
+          ])
+          && request.resource.data.participantId is string
+          && request.resource.data.participantName is string
+          && request.resource.data.rosterId is string
+          && request.resource.data.stationName == entrance()
+          && request.resource.data.method in ['qr', 'manual']
+          && request.resource.data.checkedInAt == request.time
+          && request.resource.data.active == true
+          && request.resource.data.staffUid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/events/$(eventId)/rosters/$(request.resource.data.rosterId)/participants/$(request.resource.data.participantId)).data.checkInId == checkInId;
+
+        allow update: if isStaff(eventId)
+          && get(/databases/$(database)/documents/events/$(eventId)).data.status == 'live'
+          && resource.data.active == true
+          && request.resource.data.active == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'active', 'undoneAt', 'undoReason', 'undoStationName'
+          ])
+          && request.resource.data.undoneAt == request.time
+          && request.resource.data.undoReason is string
+          && request.resource.data.undoReason.size() >= 3
+          && request.resource.data.undoReason.size() <= 200
+          && request.resource.data.undoStationName in ['A', 'B', 'C', 'D']
+          && getAfter(/databases/$(database)/documents/events/$(eventId)/rosters/$(resource.data.rosterId)/participants/$(resource.data.participantId)).data.checkInId == null;
+
+        allow delete: if false;
+      }
+
+      match /auditLogs/{auditId} {
+        allow read: if isStaff(eventId);
+        allow create: if isStaff(eventId)
+          && request.resource.data.keys().hasOnly([
+            'action', 'checkInId', 'participantId', 'reason', 'stationName', 'staffUid', 'createdAt'
+          ])
+          && request.resource.data.action in ['checkin_undone', 'participant_revoked', 'participant_restored', 'participant_created', 'participant_updated', 'participant_deleted', 'confirmation_updated']
+          && request.resource.data.participantId is string
+          && request.resource.data.reason is string
+          && request.resource.data.reason.size() >= 3
+          && request.resource.data.reason.size() <= 200
+          && request.resource.data.stationName in ['A', 'B', 'C', 'D']
+          && request.resource.data.staffUid == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
+
+      match /stats/{documentId} {
+        allow read: if isStaff(eventId);
+        allow write: if false;
+      }
+
+      match /{privateCollection}/{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
