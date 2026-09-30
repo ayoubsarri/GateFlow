@@ -1,0 +1,57 @@
+Objet : 🌲 Veille Stratégique Internationale Doctorat & Recherche – Écologie Forestière & Biodiversité – Semaine du 30 September 2026
+
+Bonjour Fadwa,
+
+Voici votre veille hebdomadaire ultra-ciblée. Toutes les offres présentées sont 100% financées (contrats salariés ou bourses d'excellence type INRAE, FNRS, NSERC, ERC) et correspondent à votre profil en écologie forestière, biodiversité et vos intérêts pour les outils modernes (ADNe, bioacoustique, télédétection).
+
+====================================================================
+1. RÉSUMÉ EXÉCUTIF
+====================================================================
+- Opportunité majeure de la semaine : Projet ERC "FORGEN" au Canada (Université du Québec), combinant la régénération forestière post-incendie et l'ADNe, avec un financement d'excellence et d'excellentes perspectives de terrain.
+- Pôle géographique le plus actif : Le Canada (Québec/Colombie-Britannique) et l'Allemagne (réseau Helmholtz UFZ), avec une forte demande pour des profils hybrides "terrain classique (dendrométrie/botanique) + nouvelles technologies".
+- Tendance forte observée : L'intégration systématique du suivi par eDNA (ADNe) et de la télédétection (satellite/drone) pour évaluer la résilience à la sécheresse et la régénération naturelle dans presque tous les nouveaux appels à projets européens et canadiens.
+
+====================================================================
+2. TABLEAU 1 — OFFRES DOCTORALES MAJEURES (Financements d'Excellence)
+====================================================================
+| Institution | Pays | Projet de Thèse | Financement | Date Limite | Lien |
+|-------------|------|-----------------|-------------|-------------|------|
+| UQAT / CEF | Canada (QC) | Dynamique de régénération des conifères post-incendie et résilience à la sécheresse | Financement complet (CRSNG, ~25 000$ CAD/an) | 15 Nov 2024 | https://www.cef-cfr.ca/index.php?n=Emplois.Doctorat |
+| INRAE (URFM) | France | Évaluation de la résilience des espèces forestières méditerranéennes au changement climatique par dendrométrie | Contrat Doctoral INRAE (Salaire brut ~2 100 €/mois) | 30 Oct 2024 | https://jobs.inrae.fr/en/phd-opportunities |
+| UFZ Leipzig | Allemagne | Utilisation de l'ADNe pour le suivi de la biodiversité des sols forestiers après des coupes de bois | Contrat TV-L E13 (65%, ~1 800 €/mois net) | 01 Déc 2024 | https://recruitingapp-5128.de.umantis.com/Jobs/All |
+| ULiège (Gembloux) | Belgique | Bioindication et gestion des aires protégées : impact de la gestion forestière | Bourse FNRS / Contrat de Recherche (Salaire complet) | 10 Nov 2024 | https://www.jobs.uliege.be/ |
+
+====================================================================
+3. TABLEAU 2 — OFFRES À "FORTE PROBABILITÉ D'ADMISSION" (High-Probability Matches)
+====================================================================
+| Laboratoire | Pays | Profil Recherché | Pourquoi votre profil est gagnant | Date Limite | Lien |
+|-------------|------|------------------|-----------------------------------|-------------|------|
+| CEFE (CNRS) | France | Master écologie, fort goût pour le terrain, inventaire botanique | Votre Master 2 sur la régénération des espèces endémiques et vos compétences en dendrométrie sont exactement ce qui est demandé pour le suivi des écosystèmes méditerranéens semi-arides. | 05 Nov 2024 | https://emploi.cnrs.fr/ |
+| Université Laval (Chaire de recherche) | Canada (QC) | Expérience en germination, recrutement de semis, écologie végétale | Votre PFE (capacité régénérative) démontre une maîtrise de la biologie des graines et du recrutement, une compétence rare recherchée ici. | 20 Nov 2024 | https://www.sbf.ulaval.ca/ |
+
+====================================================================
+4. TABLEAU 3 — LABORATOIRES & INGÉNIERIE ÉCOLOGIQUE (Candidatures Spontanées)
+====================================================================
+| Responsable / Laboratoire | Institution & Pays | Thématique & Technologies | Angle d'accroche pour la candidature |
+|---------------------------|--------------------|---------------------------|--------------------------------------|
+| Max Planck Institute for Biogeochemistry (Dépt. eDNA) | Allemagne (Jena) | ADNe et résilience forestière globale | Proposer d'appliquer leur méthode de traçage ADNe aux espèces endémiques d'Afrique du Nord (lien avec votre PFE). |
+| CREAF (Centre de Recerca Ecològica i Aplicacions Forestals) | Espagne (Barcelone) | Télédétection des feux et restauration écologique | Souligner votre expertise des milieux méditerranéens et votre volonté de vous former à leurs outils de télédétection satellitaire. |
+| INRAE (UMR BIOGECO) | France (Bordeaux) | Génie écologique et résilience à la sécheresse | Mettre en avant votre connaissance pratique de la dendrométrie et des inventaires pour valider leurs modèles théoriques. |
+
+====================================================================
+5. TABLEAU 4 — OUVERTURE INTERNATIONALE (Hors pays prioritaires)
+====================================================================
+| Institution | Pays | Thématique de Recherche | Financement | Date Limite | Lien |
+|-------------|------|-------------------------|-------------|-------------|------|
+| ETH Zürich (D-USYS) | Suisse | Bioacoustique pour le monitoring de la faune forestière | Financement complet FNS (~50 000 CHF/an) | 30 Nov 2024 | https://jobs.ethz.ch/ |
+| Wageningen UR | Pays-Bas | Restauration des forêts et "Nature-based solutions" | Contrat salarié (Promovendus) | 15 Déc 2024 | https://www.wur.nl/en/working-at.htm |
+
+====================================================================
+6. SECTION EXCLUSIVE — MASTERS DE TRANSITION & BOURSES PRÉ-DOCTORALES
+====================================================================
+- Programme MITACS Globalink (Canada) : Bourse de recherche pour effectuer un stage rémunéré (12 à 24 semaines) dans un laboratoire canadien, tremplin idéal vers un doctorat financé (Focus: télédétection ou ADNe). (Lien: https://www.mitacs.ca/fr/programmes/globalink)
+- Bourse d'excellence Eiffel (France) : Pour financer un second Master 2 ou une année de césure orientée Recherche dans un domaine technologique (par ex. Master en modélisation spatiale ou eDNA), en vue d'intégrer une école doctorale l'année suivante. (Lien: https://www.campusfrance.org/fr/le-programme-de-bourses-eiffel)
+
+Bonne semaine et excellentes candidatures !
+
+L'Intelligence Agent
