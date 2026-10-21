@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { ArrowLeft, Clock, Eye, EyeOff, Maximize, Minimize, Sparkles, Volume2, VolumeX, Users, MapPin, Building } from "lucide-react";
+import { ArrowLeft, Clock, Eye, EyeOff, Maximize, Minimize, Volume2, VolumeX, MapPin, Building, ShieldCheck, Calendar, Activity } from "lucide-react";
 import { BrandLogo } from "../components/BrandLogo";
 import type { CheckInRecord, EventRecord, Language, Participant } from "../types";
 
@@ -21,6 +21,7 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
     id: string;
     name: string;
     organization?: string;
+    title?: string;
     stationName: string;
     timestamp: string;
   } | null>(null);
@@ -39,37 +40,38 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
     if (latestCheckIn.id !== lastCheckInId) {
       setLastCheckInId(latestCheckIn.id);
 
-      // Find matching participant to get organization/affiliation
       const match = participants.find((p) => p.id === latestCheckIn.participantId || p.name === latestCheckIn.participantName);
 
       const arrivalData = {
         id: latestCheckIn.id,
         name: latestCheckIn.participantName,
-        organization: match?.organization || match?.title,
+        organization: match?.organization,
+        title: match?.title,
         stationName: latestCheckIn.stationName,
         timestamp: latestCheckIn.checkedInAt
       };
 
       setActiveArrival(arrivalData);
 
-      // Play polite welcome chime
+      // Play prestigious welcome chime
       if (soundEnabled) {
         try {
           const AudioContextValue = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
           if (AudioContextValue) {
             const ctx = new AudioContextValue();
             const now = ctx.currentTime;
-            // Pentatonic welcome chime: C5 (523.25) -> G5 (783.99) -> C6 (1046.50)
-            const freqs = [523.25, 783.99, 1046.50];
+            // Pentatonic arpeggio chime: F5 (698.46) -> A5 (880.00) -> C6 (1046.50)
+            const freqs = [698.46, 880.00, 1046.50];
             freqs.forEach((freq, idx) => {
               const osc = ctx.createOscillator();
               const gain = ctx.createGain();
+              osc.type = "sine";
               osc.frequency.value = freq;
-              gain.gain.setValueAtTime(0.06, now + idx * 0.1);
-              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.35);
+              gain.gain.setValueAtTime(0.08, now + idx * 0.12);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.4);
               osc.connect(gain).connect(ctx.destination);
-              osc.start(now + idx * 0.1);
-              osc.stop(now + idx * 0.1 + 0.35);
+              osc.start(now + idx * 0.12);
+              osc.stop(now + idx * 0.12 + 0.4);
             });
           }
         } catch {
@@ -77,10 +79,10 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
         }
       }
 
-      // Keep active arrival spotlight for 25 seconds before returning to idle rotation
+      // Keep active arrival spotlight for 30 seconds before returning to idle schedule
       const timeout = setTimeout(() => {
         setActiveArrival(null);
-      }, 25000);
+      }, 30000);
 
       return () => clearTimeout(timeout);
     }
@@ -104,6 +106,17 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
   const totalAccepted = participants.length || 1;
   const occupancyPercent = Math.round((totalCheckedIn / totalAccepted) * 100);
 
+  // Gate breakdown calculation
+  const gateBreakdown = useMemo(() => {
+    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
+    participants.forEach((p) => {
+      if (p.checkedInAt && p.stationName) {
+        counts[p.stationName] = (counts[p.stationName] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [participants]);
+
   const formatDisplayName = (fullName: string) => {
     if (!privacyMode) return fullName;
     const parts = fullName.trim().split(" ");
@@ -111,143 +124,285 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
     return `${parts[0]} ${parts[parts.length - 1][0]}.`;
   };
 
-  return (
-    <div className="welcome-board-container" dir="ltr">
-      {/* Ambient background flares */}
-      <div className="welcome-flare flare-1" />
-      <div className="welcome-flare flare-2" />
+  // 20-segment LED occupancy bar
+  const totalSegments = 20;
+  const activeSegments = Math.round((occupancyPercent / 100) * totalSegments);
 
-      {/* Top Header Bar */}
-      <header className="welcome-header">
-        <div className="welcome-brand">
-          <BrandLogo />
-          <div className="welcome-event-info">
-            <h1>{event.title.en || "INAS National Forum"}</h1>
-            <p>{event.venue.en || "Algiers, Algeria"} · {event.date || "2026"}</p>
+  return (
+    <div className="wb-editorial-root" dir="ltr">
+      {/* Real Venue Photography Background with Deep Duotone Wash */}
+      <div className="wb-background-layer">
+        <div className="wb-photo-duotone" style={{ backgroundImage: "url('/audience-hall.jpg')" }} />
+        <div className="wb-ink-overlay" />
+        <div className="wb-grid-marks" />
+      </div>
+
+      {/* Top Editorial Masthead */}
+      <header className="wb-masthead">
+        <div className="wb-masthead-left">
+          <div className="wb-logo-plate">
+            <BrandLogo />
+          </div>
+          <div className="wb-edition-meta">
+            <span className="wb-eyebrow">NATIONAL SCIENTIFIC CONVENTION · ALGIERS</span>
+            <h1 className="wb-event-headline">INAS ANNUAL PLENARY 2026</h1>
+            <p className="wb-event-arabic">الملتقى الوطني لشبكة العلماء والخبراء الجزائريين</p>
           </div>
         </div>
 
-        <div className="welcome-header-actions">
-          {/* Live Hall Occupancy Pill */}
-          <div className="occupancy-pill">
-            <Users size={18} />
-            <span>
-              <strong>{totalCheckedIn}</strong> / {totalAccepted} ({occupancyPercent}%)
-            </span>
-          </div>
-
-          {/* Digital Clock */}
-          <div className="welcome-clock">
-            <Clock size={18} />
-            <span>
+        <div className="wb-masthead-right">
+          {/* Real-time Clock */}
+          <div className="wb-clock-box">
+            <Clock size={16} className="text-gold" />
+            <span className="wb-clock-time">
               {String(clock.getHours()).padStart(2, "0")}:
               {String(clock.getMinutes()).padStart(2, "0")}:
               {String(clock.getSeconds()).padStart(2, "0")}
             </span>
+            <span className="wb-clock-tz">WAT (UTC+1)</span>
           </div>
 
-          {/* Privacy Toggle */}
-          <button
-            className="kiosk-control-btn"
-            onClick={() => setPrivacyMode(!privacyMode)}
-            title={privacyMode ? "Privacy Mode Active" : "Full Names Displayed"}
-          >
-            {privacyMode ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-
-          {/* Sound Toggle */}
-          <button
-            className="kiosk-control-btn"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            title={soundEnabled ? "Mute Chimes" : "Enable Chimes"}
-          >
-            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </button>
-
-          {/* Fullscreen Toggle */}
-          <button className="kiosk-control-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
-            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-          </button>
-
-          {/* Back to App */}
-          {onBack && (
-            <button className="kiosk-control-btn exit-btn" onClick={onBack} title="Exit Kiosk Mode">
-              <ArrowLeft size={18} />
+          {/* Folio Controls */}
+          <div className="wb-controls-group">
+            <button
+              className={`wb-tool-btn ${privacyMode ? "is-active" : ""}`}
+              onClick={() => setPrivacyMode(!privacyMode)}
+              title={privacyMode ? "Privacy Mode (Masked)" : "Full Names Mode"}
+            >
+              {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
-          )}
+
+            <button
+              className={`wb-tool-btn ${soundEnabled ? "is-active" : ""}`}
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              title={soundEnabled ? "Audio Chime ON" : "Audio Muted"}
+            >
+              {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
+
+            <button className="wb-tool-btn" onClick={toggleFullscreen} title="Fullscreen Toggle">
+              {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            </button>
+
+            {onBack && (
+              <button className="wb-tool-btn wb-exit-btn" onClick={onBack} title="Exit Screen">
+                <ArrowLeft size={16} />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Center Stage: Dynamic Arrival Spotlight or Idle Showcase */}
-      <main className="welcome-main-stage">
-        {activeArrival ? (
-          <div className="arrival-spotlight-card" key={activeArrival.id}>
-            <div className="spotlight-badge">
-              <Sparkles size={20} className="sparkle-icon" />
-              <span>JUST CHECKED IN · دخول جديد</span>
+      {/* Main Editorial Workspace: 65% Arrival Stage / 35% Auditorium Telemetry */}
+      <div className="wb-main-split">
+        {/* Left: The Grand Arrival Spotlight Stage */}
+        <section className="wb-stage-column">
+          {activeArrival ? (
+            <article className="wb-arrival-dossier" key={activeArrival.id}>
+              {/* Technical Registration Marks */}
+              <span className="wb-reg-mark mark-tl">┌</span>
+              <span className="wb-reg-mark mark-tr">┐</span>
+              <span className="wb-reg-mark mark-bl">└</span>
+              <span className="wb-reg-mark mark-br">┘</span>
+
+              <div className="wb-dossier-header">
+                <div className="wb-highlighter-tag">
+                  <span>DELEGATE ARRIVAL · بطاقة وصول معتمدة</span>
+                </div>
+                <div className="wb-verified-badge">
+                  <ShieldCheck size={18} />
+                  <span>OFFICIALLY VERIFIED</span>
+                </div>
+              </div>
+
+              <div className="wb-salutation-line">
+                <h2>أهلاً وسهلاً بكم في الجلسة الافتتاحية</h2>
+                <h3>Welcome to the Annual Plenary Session</h3>
+              </div>
+
+              <div className="wb-guest-block">
+                <h1 className="wb-guest-primary-name">{formatDisplayName(activeArrival.name)}</h1>
+                {activeArrival.title && <span className="wb-guest-title-tag">{activeArrival.title}</span>}
+              </div>
+
+              {activeArrival.organization && (
+                <div className="wb-guest-institution-box">
+                  <Building size={20} className="text-gold" />
+                  <span className="wb-institution-text">{activeArrival.organization}</span>
+                </div>
+              )}
+
+              {/* Physical Boarding Slip / Gate Manifest Stamp */}
+              <div className="wb-manifest-footer">
+                <div className="wb-manifest-cell">
+                  <span className="wb-manifest-lbl">ACCESS GATE · المدخل</span>
+                  <strong className="wb-manifest-val gate-val">
+                    <MapPin size={16} />
+                    GATE {activeArrival.stationName || "A"}
+                  </strong>
+                </div>
+
+                <div className="wb-manifest-cell">
+                  <span className="wb-manifest-lbl">ENTRY TIMESTAMP</span>
+                  <strong className="wb-manifest-val">
+                    {new Date(activeArrival.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </strong>
+                </div>
+
+                <div className="wb-manifest-cell">
+                  <span className="wb-manifest-lbl">SECURITY CLEARANCE</span>
+                  <strong className="wb-manifest-val clearance-val">✓ VALIDATED PASS</strong>
+                </div>
+              </div>
+            </article>
+          ) : (
+            <article className="wb-idle-dossier">
+              <span className="wb-reg-mark mark-tl">┌</span>
+              <span className="wb-reg-mark mark-tr">┐</span>
+              <span className="wb-reg-mark mark-bl">└</span>
+              <span className="wb-reg-mark mark-br">┘</span>
+
+              <div className="wb-idle-eyebrow">
+                <span>PLENARY SESSION IN PROGRESS · الجلسة العامة</span>
+              </div>
+
+              <h2 className="wb-idle-main-title">
+                البحث العلمي، معايير الجودة والابتكار الوطني
+              </h2>
+              <h3 className="wb-idle-sub-title">
+                Higher Education, Research Quality & Global Innovation
+              </h3>
+
+              <div className="wb-program-schedule">
+                <div className="wb-schedule-item is-current">
+                  <span className="wb-item-time">09:30</span>
+                  <div className="wb-item-body">
+                    <strong>Opening Keynote: Strategy for Academic Excellence</strong>
+                    <small>Main Amphitheater · الجلسة الافتتاحية</small>
+                  </div>
+                  <span className="wb-item-badge">IN SESSION</span>
+                </div>
+
+                <div className="wb-schedule-item">
+                  <span className="wb-item-time">11:15</span>
+                  <div className="wb-item-body">
+                    <strong>Panel: Engaging the Algerian Scientific Diaspora</strong>
+                    <small>Conference Hall B · منصة الشراكة الدولية</small>
+                  </div>
+                  <span className="wb-item-badge standby">UP NEXT</span>
+                </div>
+
+                <div className="wb-schedule-item">
+                  <span className="wb-item-time">14:00</span>
+                  <div className="wb-item-body">
+                    <strong>Workshops: Tech Transfer, Patents & DeepTech</strong>
+                    <small>Innovation Pavilions 1 & 2</small>
+                  </div>
+                  <span className="wb-item-badge standby">SCHEDULED</span>
+                </div>
+              </div>
+
+              <div className="wb-venue-bar">
+                <MapPin size={16} className="text-gold" />
+                <span>Palais de la Culture Moufdi Zakaria · Plateau des Annassers, Algiers</span>
+              </div>
+            </article>
+          )}
+        </section>
+
+        {/* Right: Auditorium Telemetry & Traffic Radar */}
+        <aside className="wb-telemetry-column">
+          {/* Block 1: "By The Numbers" Hall Occupancy */}
+          <div className="wb-telemetry-card">
+            <div className="wb-card-eyebrow">
+              <span>AUDITORIUM CAPACITY</span>
+              <Activity size={16} className="text-green" />
             </div>
 
-            <h2 className="welcome-salutation">أهلاً وسهلاً بكم · Welcome</h2>
-            <h3 className="spotlight-guest-name">{formatDisplayName(activeArrival.name)}</h3>
-
-            {activeArrival.organization && (
-              <div className="spotlight-affiliation">
-                <Building size={20} />
-                <span>{activeArrival.organization}</span>
+            <div className="wb-big-number-row">
+              <span className="wb-big-stat">{occupancyPercent}%</span>
+              <div className="wb-number-context">
+                <strong>{totalCheckedIn} / {totalAccepted}</strong>
+                <small>CONFIRMED SEATS TAKEN</small>
               </div>
-            )}
+            </div>
 
-            <div className="spotlight-meta-tags">
-              <span className="spotlight-gate">
-                <MapPin size={16} />
-                Gate {activeArrival.stationName || "A"}
-              </span>
-              <span className="spotlight-time">
-                {new Date(activeArrival.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
+            {/* Segmented Architectural 20-Bar Meter */}
+            <div className="wb-segmented-meter" aria-label="Hall Occupancy Meter">
+              {Array.from({ length: totalSegments }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`wb-meter-segment ${i < activeSegments ? "is-filled" : ""}`}
+                />
+              ))}
+            </div>
+
+            <div className="wb-meter-legend">
+              <span>0% ENTRY</span>
+              <span>HALL OCCUPANCY: {totalCheckedIn} ATTENDING</span>
+              <span>100% FULL</span>
             </div>
           </div>
-        ) : (
-          <div className="welcome-idle-card">
-            <div className="idle-hero-tag">
-              <span>INTERNATIONAL SCIENTIFIC CONVENTION</span>
-            </div>
-            <h2 className="idle-hero-title">
-              الملتقى الوطني لشبكة العلماء الجزائريين
-            </h2>
-            <h3 className="idle-hero-subtitle">
-              INAS National Forum: Quality, Research & Global Knowledge
-            </h3>
 
-            <div className="idle-occupancy-bar">
-              <div className="occupancy-track">
-                <div className="occupancy-fill" style={{ width: `${occupancyPercent}%` }} />
-              </div>
-              <div className="occupancy-labels">
-                <span>Hall Occupancy: <strong>{totalCheckedIn} Attending</strong></span>
-                <span>Capacity: <strong>{occupancyPercent}%</strong></span>
-              </div>
+          {/* Block 2: Live Gate Load Balancer */}
+          <div className="wb-telemetry-card">
+            <div className="wb-card-eyebrow">
+              <span>GATE TRAFFIC MATRIX · توزيع المداخل</span>
+              <span className="wb-live-pulse-dot" />
+            </div>
+
+            <div className="wb-gate-matrix-grid">
+              {(["A", "B", "C", "D"] as const).map((gate) => {
+                const count = gateBreakdown[gate] || 0;
+                const share = totalCheckedIn ? Math.round((count / totalCheckedIn) * 100) : 0;
+                return (
+                  <div className="wb-gate-cell" key={gate}>
+                    <div className="wb-gate-badge">GATE {gate}</div>
+                    <div className="wb-gate-data">
+                      <strong>{count}</strong>
+                      <small>{share}% share</small>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        )}
-      </main>
 
-      {/* Bottom Ticker: Recent Arrivals Feed */}
-      <footer className="welcome-bottom-ticker">
-        <div className="ticker-label">
-          <span className="pulse-dot" />
-          <span>RECENT ARRIVALS</span>
+          {/* Block 3: Conference Dignitaries & Welcome Note */}
+          <div className="wb-telemetry-card wb-welcome-seal-card">
+            <div className="wb-seal-header">
+              <Calendar size={18} className="text-gold" />
+              <strong>WELCOME DELEGATES</strong>
+            </div>
+            <p className="wb-welcome-paragraph">
+              Welcome to all esteemed professors, researchers, academic partners, and international delegates joining us in Algiers. Please proceed to your allocated auditorium zone.
+            </p>
+            <div className="wb-arabic-welcome-note">
+              مرحباً بجميع العلماء، الأساتذة والباحثين المشاركين من داخل الوطن وخارجه.
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Bottom Live Arrivals Stream: Split-Flap Ticker */}
+      <footer className="wb-ticker-bar">
+        <div className="wb-ticker-header">
+          <span className="wb-pulse-indicator" />
+          <span>RECENT ARRIVALS · سجل الوصول المباشر</span>
         </div>
-        <div className="ticker-stream">
-          {recent.slice(0, 6).map((item) => (
-            <div className="ticker-item" key={item.id}>
-              <strong>{formatDisplayName(item.participantName)}</strong>
-              <span className="ticker-gate">Gate {item.stationName}</span>
-              <small>{new Date(item.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>
+
+        <div className="wb-ticker-scroll">
+          {recent.slice(0, 8).map((record) => (
+            <div className="wb-ticker-plate" key={record.id}>
+              <span className="wb-plate-gate">GATE {record.stationName}</span>
+              <strong className="wb-plate-name">{formatDisplayName(record.participantName)}</strong>
+              <small className="wb-plate-time">
+                {new Date(record.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </small>
             </div>
           ))}
           {recent.length === 0 && (
-            <div className="ticker-empty">Gate check-in stream is live and active...</div>
+            <div className="wb-ticker-idle">Gate check-in streams are active and synchronizing live...</div>
           )}
         </div>
       </footer>
