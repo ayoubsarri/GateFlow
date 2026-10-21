@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardCheck, Languages, QrCode, Settings, UsersRound, Wifi, WifiOff } from "lucide-react";
+import { BarChart3, ClipboardCheck, Languages, QrCode, Settings, Tv, UsersRound, Wifi, WifiOff } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
 import { copy } from "../lib/i18n";
 import type { AppView, EventRecord, Language } from "../types";
@@ -52,6 +52,14 @@ export function AppShell({ event, activeView, language, online, stationName, chi
         <header className="topbar">
           <div className="topbar-brand"><BrandLogo compact /></div>
           <div className="topbar-actions">
+            <button
+              className="icon-button welcome-board-launch-btn"
+              onClick={() => onViewChange("welcome-board")}
+              title={language === "ar" ? "شاشة الترحيب للحضور (Kiosk / TV)" : "Public Welcome Board (Kiosk / TV)"}
+            >
+              <Tv size={17} />
+              <span className="launch-text">{language === "ar" ? "شاشة الترحيب" : "Kiosk TV"}</span>
+            </button>
             <span className="station-chip">{t.station} {stationName}</span>
             <div className={`connection-pill ${online ? "is-online" : "is-offline"}`} title={online ? t.online : t.offline}>
               {online ? <Wifi size={16} /> : <WifiOff size={16} />}

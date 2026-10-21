@@ -13,6 +13,7 @@ import { DashboardScreen } from "./screens/DashboardScreen";
 import { PeopleScreen } from "./screens/PeopleScreen";
 import { ScanScreen } from "./screens/ScanScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { WelcomeBoardScreen } from "./screens/WelcomeBoardScreen";
 import type { AppView, EntranceConfig, EntranceName, EventSnapshot, Language, StaffSession } from "./types";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -30,7 +31,8 @@ const client = getEventClient();
 
 export default function App() {
   const [language, setLanguage] = useState<Language>(() => (localStorage.getItem("inas-language") as Language) || "ar");
-  const [view, setView] = useState<AppView>("scan");
+  const isKioskUrl = typeof window !== "undefined" && (window.location.pathname === "/welcome-board" || window.location.hash === "#welcome-board");
+  const [view, setView] = useState<AppView>(() => (isKioskUrl ? "welcome-board" : "scan"));
   const [booting, setBooting] = useState(true);
   const [session, setSession] = useState<StaffSession | null>(null);
   const [entrances, setEntrances] = useState<EntranceConfig[]>(() => loadEntrances());
@@ -69,15 +71,22 @@ export default function App() {
       window.__inasInstallPrompt = prompt;
       setInstallPrompt(prompt);
     };
+    const onHash = () => {
+      if (window.location.hash === "#welcome-board" || window.location.pathname === "/welcome-board") {
+        setView("welcome-board");
+      }
+    };
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     window.addEventListener("inas-queue-updated", onQueueUpdate);
     window.addEventListener("beforeinstallprompt", onInstall);
+    window.addEventListener("hashchange", onHash);
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("inas-queue-updated", onQueueUpdate);
       window.removeEventListener("beforeinstallprompt", onInstall);
+      window.removeEventListener("hashchange", onHash);
     };
   }, []);
 
@@ -98,13 +107,13 @@ export default function App() {
   }, [entrances]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session && view !== "welcome-board") return;
     const unsubscribe = client.subscribe(
       (next) => { setSnapshot(next); setDataError(null); },
       (error) => setDataError(error.message)
     );
     return unsubscribe;
-  }, [session]);
+  }, [session, view]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => window.scrollTo(0, 0));
@@ -139,6 +148,23 @@ export default function App() {
 
   if (booting) {
     return <main className="boot-screen" dir={direction}><BrandLogo /><LoaderCircle className="spin" size={28} /><span>{t.loading}</span></main>;
+  }
+
+  if (view === "welcome-board") {
+    return (
+      <WelcomeBoardScreen
+        language={language}
+        event={snapshot.event}
+        recent={snapshot.recent}
+        participants={snapshot.participants}
+        onBack={() => {
+          if (window.location.hash === "#welcome-board") {
+            window.location.hash = "";
+          }
+          setView(session ? "dashboard" : "scan");
+        }}
+      />
+    );
   }
 
   if (!session) {

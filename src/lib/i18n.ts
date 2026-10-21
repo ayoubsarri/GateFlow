@@ -60,7 +60,18 @@ export const copy = {
     loading: "جارٍ التحميل…",
     checkInMethod: "الطريقة",
     qr: "QR",
-    manual: "يدوي"
+    manual: "يدوي",
+    speedGate: "وضع السرعة (Speed-Gate)",
+    speedGateActive: "المسح السريع مفعّل",
+    burstScanned: "مسجل بالدفعة",
+    welcomeBoard: "شاشة الترحيب",
+    velocity: "سرعة الدخول",
+    currentVelocity: "السرعة الحالية",
+    peakVelocity: "أعلى ذروة",
+    gateHeatmap: "حمل المداخل",
+    p2pMesh: "مزامنة P2P محلية",
+    meshConnected: "مداخل متصلة شبكياً",
+    pairMesh: "ربط شبكة المداخل"
   },
   en: {
     signIn: "Sign in",
@@ -121,7 +132,18 @@ export const copy = {
     loading: "Loading…",
     checkInMethod: "Method",
     qr: "QR",
-    manual: "Manual"
+    manual: "Manual",
+    speedGate: "Speed-Gate Mode",
+    speedGateActive: "Speed-Gate Active",
+    burstScanned: "Burst Scanned",
+    welcomeBoard: "Welcome Board",
+    velocity: "Arrival Velocity",
+    currentVelocity: "Current Velocity",
+    peakVelocity: "Peak Velocity",
+    gateHeatmap: "Gate Heatmap",
+    p2pMesh: "P2P Local Mesh",
+    meshConnected: "Gates Connected",
+    pairMesh: "Pair Mesh"
   }
 } as const satisfies Record<Language, Record<string, string>>;
 

@@ -5,7 +5,7 @@ export type ParticipantStatus = "accepted" | "revoked";
 export type ConfirmationStatus = "unknown" | "confirmed" | "declined";
 export type CheckInMethod = "qr" | "manual";
 export type EntranceName = "A" | "B" | "C" | "D";
-export type AppView = "scan" | "people" | "confirmations" | "dashboard" | "settings";
+export type AppView = "scan" | "people" | "confirmations" | "dashboard" | "settings" | "welcome-board";
 
 export interface LocalizedText {
   ar: string;
