@@ -48,7 +48,7 @@ export function LoginScreen({ language, entrances, onLanguageChange, onSubmit }:
     setError(false);
     setLoading(true);
     try {
-      const activeStation = role === "admin" ? "Admin" : stationName;
+      const activeStation = stationName || entrances[0] || "A";
       await onSubmit(pin, activeStation);
       localStorage.removeItem("inas-login-attempts");
       localStorage.removeItem("inas-lockout-until");

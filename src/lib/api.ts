@@ -186,8 +186,8 @@ class FirebaseEventClient implements EventClient {
 
   async startSession(pin: string, stationName: string): Promise<StaffSession> {
     if (!auth || !db) throw new Error("Firebase is not configured.");
-    const station = stationName || "A";
-    if (!allEntrances().includes(station as EntranceName) || pin.length < 4) throw new Error("invalid-session");
+    const station = (!stationName || stationName === "Admin" || !allEntrances().includes(stationName as EntranceName)) ? "A" : stationName;
+    if (pin.length < 4) throw new Error("invalid-session");
     const isAdminPin = pin === "999999" || pin === "888888" || pin === "admin";
     const authPin = isAdminPin ? "121212" : pin;
     const credential = await signInWithEmailAndPassword(auth, entranceEmail(station), authPin);
