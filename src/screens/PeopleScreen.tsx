@@ -1,13 +1,35 @@
-import { Ban, Check, CheckCircle2, CircleHelp, Clock3, FileDown, Mail, Pencil, Plus, RotateCcw, Search, ShieldCheck, Trash2, UserCheck, UsersRound, XCircle } from "lucide-react";
+import {
+  Ban,
+  Check,
+  CheckCircle2,
+  CircleHelp,
+  Clock3,
+  FileDown,
+  Mail,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  Tag,
+  Trash2,
+  UploadCloud,
+  UserCheck,
+  UsersRound,
+  X,
+  XCircle
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { createRequestId, formatEventTime, matchesParticipantWithNeedle, normalizeText } from "../lib/domain";
 import { copy } from "../lib/i18n";
 import { createInvitationPdfWindow, openInvitationPdf } from "../lib/invitationPdf";
+import { parseAttendeesCsv } from "../lib/csvImport";
 import type { EventClient } from "../lib/api";
-import type { Language, ManualInviteInput, Participant } from "../types";
+import type { Language, ManualInviteInput, Participant, ParticipantCategory } from "../types";
 
 type Filter = "all" | "checked" | "waiting" | "revoked";
+type CategoryFilter = "all" | ParticipantCategory;
 
 interface PeopleScreenProps {
   language: Language;
@@ -17,90 +39,143 @@ interface PeopleScreenProps {
 
 export function PeopleScreen({ language, participants, client }: PeopleScreenProps) {
   const t = copy[language];
+  const isAr = language === "ar";
+
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [pdfBusy, setPdfBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [codeMatchIds, setCodeMatchIds] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [manualInvite, setManualInvite] = useState<ManualInviteInput>({ name: "", email: "", organization: "" });
+  const [manualInvite, setManualInvite] = useState<ManualInviteInput>({
+    name: "",
+    email: "",
+    organization: "",
+    title: "",
+    category: "delegate"
+  });
   const [visibleCount, setVisibleCount] = useState(50);
+
+  // CSV Import State
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<ManualInviteInput[]>([]);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvImporting, setCsvImporting] = useState(false);
 
   useEffect(() => {
     setVisibleCount(50);
-  }, [query, filter]);
+  }, [query, filter, categoryFilter]);
 
-  const labels = language === "ar" ? {
-    add: "إضافة",
-    addGuest: "إضافة مدعو",
-    editGuest: "تعديل مدعو",
-    name: "الاسم",
-    email: "البريد",
-    organization: "الجهة",
-    save: "حفظ",
-    cancel: "إلغاء",
-    pdf: "PDF",
-    pdfAll: "PDF الكل",
-    restore: "استرجاع",
-    restoreAll: "استرجاع الملغى",
-    edit: "تعديل",
-    delete: "حذف",
-    deleteReason: "سبب حذف المدعو",
-    revokeReason: "سبب إلغاء الدعوة",
-    restoreReason: "سبب الاسترجاع",
-    correctionReason: "سبب تصحيح سجل الحضور",
-    revokedNotice: "تم إلغاء الدعوة.",
-    restored: "تم الاسترجاع.",
-    restoredAll: "تم استرجاع قائمة الملغى.",
-    created: "تمت الإضافة.",
-    updated: "تم التعديل.",
-    deleted: "تم الحذف.",
-    correction: "تصحيح",
-    corrected: "تم التصحيح.",
-    popupBlocked: "اسمح بفتح النافذة لحفظ PDF.",
-    confirmed: "مؤكد",
-    unconfirmed: "لم يؤكد",
-    declined: "لن يحضر"
-  } : {
-    add: "Add",
-    addGuest: "Add guest",
-    editGuest: "Edit guest",
-    name: "Name",
-    email: "Email",
-    organization: "Organization",
-    save: "Save",
-    cancel: "Cancel",
-    pdf: "PDF",
-    pdfAll: "All PDFs",
-    restore: "Restore",
-    restoreAll: "Restore revoked",
-    edit: "Edit",
-    delete: "Delete",
-    deleteReason: "Reason for deleting this guest",
-    revokeReason: "Reason for revoking this invitation",
-    restoreReason: "Reason for restoring this invitation",
-    correctionReason: "Reason for correcting this attendance record",
-    revokedNotice: "Invitation revoked.",
-    restored: "Invitation restored.",
-    restoredAll: "Revoked list restored.",
-    created: "Guest added.",
-    updated: "Guest updated.",
-    deleted: "Guest deleted.",
-    correction: "Correct",
-    corrected: "Attendance corrected.",
-    popupBlocked: "Allow the pop-up to save the PDF.",
-    confirmed: "Confirmed",
-    unconfirmed: "No reply",
-    declined: "Not coming"
+  const labels = isAr
+    ? {
+        add: "إضافة مدعو",
+        addGuest: "إضافة مدعو جديد",
+        editGuest: "تعديل بيانات المدعو",
+        importCsv: "استيراد CSV",
+        name: "الاسم الكامل",
+        email: "البريد الإلكتروني",
+        organization: "الجهة / المؤسسة",
+        title: "الصفة / اللقب",
+        category: "فئة المشارك",
+        save: "حفظ",
+        cancel: "إلغاء",
+        pdf: "شارة PDF",
+        restore: "استرجاع",
+        restoreAll: "استرجاع الملغى",
+        edit: "تعديل",
+        delete: "حذف",
+        deleteReason: "سبب حذف المدعو",
+        revokeReason: "سبب إلغاء الدعوة",
+        restoreReason: "سبب الاسترجاع",
+        correctionReason: "سبب تصحيح سجل الحضور",
+        revokedNotice: "تم إلغاء الدعوة.",
+        restored: "تم الاسترجاع.",
+        restoredAll: "تم استرجاع قائمة الملغى.",
+        created: "تمت إضافة المدعو بنجاح.",
+        updated: "تم تعديل البيانات.",
+        deleted: "تم حذف المدعو.",
+        correction: "تصحيح الحضور",
+        corrected: "تم تصحيح الحضور.",
+        popupBlocked: "يرجى السماح بفتح النوافذ المنبثقة لتحميل PDF.",
+        confirmed: "مؤكد",
+        unconfirmed: "لم يؤكد",
+        declined: "اعتذر عن الحضور",
+        csvModalTitle: "استيراد المدعوين من ملف CSV",
+        csvHelpText: "يدعم الحقول: Name, Email, Organization, Role / Category, Title",
+        csvUploadBtn: "اختر ملف CSV",
+        csvPreviewTitle: "معاينة البيانات المستوردة",
+        csvConfirmBtn: "تأكيد واستيراد إلى قاعدة البيانات",
+        csvSuccess: "تم استيراد المدعوين بنجاح!",
+        catAll: "كافة الفئات",
+        catDelegate: "مشارك",
+        catVip: "VIP كبار الشخصيات",
+        catSpeaker: "متحدث",
+        catPress: "صحافة وإعلام",
+        catOrganizer: "منظم"
+      }
+    : {
+        add: "Add Guest",
+        addGuest: "Add New Guest",
+        editGuest: "Edit Guest",
+        importCsv: "Import CSV",
+        name: "Full Name",
+        email: "Email Address",
+        organization: "Organization / Entity",
+        title: "Title / Rank",
+        category: "Participant Category",
+        save: "Save",
+        cancel: "Cancel",
+        pdf: "PDF Badge",
+        restore: "Restore",
+        restoreAll: "Restore Revoked",
+        edit: "Edit",
+        delete: "Delete",
+        deleteReason: "Reason for deleting this guest",
+        revokeReason: "Reason for revoking this invitation",
+        restoreReason: "Reason for restoring this invitation",
+        correctionReason: "Reason for correcting attendance",
+        revokedNotice: "Invitation revoked.",
+        restored: "Invitation restored.",
+        restoredAll: "Revoked list restored.",
+        created: "Guest added successfully.",
+        updated: "Guest updated.",
+        deleted: "Guest deleted.",
+        correction: "Correct",
+        corrected: "Attendance corrected.",
+        popupBlocked: "Allow pop-ups to open the PDF badge.",
+        confirmed: "Confirmed",
+        unconfirmed: "No reply",
+        declined: "Declined",
+        csvModalTitle: "Import Attendees via CSV",
+        csvHelpText: "Recognizes columns: Name, Email, Organization, Role / Category, Title",
+        csvUploadBtn: "Select CSV File",
+        csvPreviewTitle: "Import Preview",
+        csvConfirmBtn: "Confirm & Ingest into Database",
+        csvSuccess: "Attendees imported successfully!",
+        catAll: "All Categories",
+        catDelegate: "Delegate",
+        catVip: "VIP",
+        catSpeaker: "Speaker",
+        catPress: "Press / Media",
+        catOrganizer: "Organizer"
+      };
+
+  const categoryLabels: Record<ParticipantCategory, string> = {
+    delegate: labels.catDelegate,
+    vip: labels.catVip,
+    speaker: labels.catSpeaker,
+    press: labels.catPress,
+    organizer: labels.catOrganizer
   };
 
-  const confirmationTitle = (participant: Participant) => participant.confirmationStatus === "confirmed"
-    ? labels.confirmed
-    : participant.confirmationStatus === "declined"
-      ? labels.declined
-      : labels.unconfirmed;
+  const confirmationTitle = (participant: Participant) =>
+    participant.confirmationStatus === "confirmed"
+      ? labels.confirmed
+      : participant.confirmationStatus === "declined"
+        ? labels.declined
+        : labels.unconfirmed;
 
   useEffect(() => {
     const looksLikeCode = /^[A-Z0-9-]{6,12}$/i.test(query.trim());
@@ -110,11 +185,14 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
     }
     let active = true;
     const timer = window.setTimeout(() => {
-      void client.lookup(query.trim()).then((matches) => {
-        if (active) setCodeMatchIds(new Set(matches.map((participant) => participant.id)));
-      }).catch(() => {
-        if (active) setCodeMatchIds(new Set());
-      });
+      void client
+        .lookup(query.trim())
+        .then((matches) => {
+          if (active) setCodeMatchIds(new Set(matches.map((participant) => participant.id)));
+        })
+        .catch(() => {
+          if (active) setCodeMatchIds(new Set());
+        });
     }, 300);
     return () => {
       active = false;
@@ -126,16 +204,24 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
     const trimmed = query.trim();
     const needle = trimmed ? normalizeText(trimmed) : "";
     return participants.filter((participant) => {
-      const matchesFilter = filter === "all"
-        || (filter === "checked" && Boolean(participant.checkedInAt))
-        || (filter === "waiting" && participant.status === "accepted" && !participant.checkedInAt)
-        || (filter === "revoked" && participant.status === "revoked");
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "checked" && Boolean(participant.checkedInAt)) ||
+        (filter === "waiting" && participant.status === "accepted" && !participant.checkedInAt) ||
+        (filter === "revoked" && participant.status === "revoked");
+
       if (!matchesFilter) return false;
+
+      const participantCat: ParticipantCategory = participant.category || "delegate";
+      if (categoryFilter !== "all" && participantCat !== categoryFilter) {
+        return false;
+      }
+
       if (codeMatchIds.has(participant.id)) return true;
       if (!needle) return true;
       return matchesParticipantWithNeedle(participant, needle);
     });
-  }, [codeMatchIds, filter, participants, query]);
+  }, [codeMatchIds, filter, categoryFilter, participants, query]);
 
   const visibleParticipants = useMemo(() => {
     return filtered.slice(0, visibleCount);
@@ -144,13 +230,13 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
   const resetForm = () => {
     setAdding(false);
     setEditingId(null);
-    setManualInvite({ name: "", email: "", organization: "" });
+    setManualInvite({ name: "", email: "", organization: "", title: "", category: "delegate" });
   };
 
   const beginAdd = () => {
     setAdding(true);
     setEditingId(null);
-    setManualInvite({ name: "", email: "", organization: "" });
+    setManualInvite({ name: "", email: "", organization: "", title: "", category: "delegate" });
   };
 
   const beginEdit = (participant: Participant) => {
@@ -160,7 +246,8 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
       name: participant.name,
       email: participant.email,
       organization: participant.organization || "",
-      title: participant.title || ""
+      title: participant.title || "",
+      category: participant.category || "delegate"
     });
   };
 
@@ -169,7 +256,13 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
     setNotice(null);
     try {
       const result = await client.manualCheckIn(participant.id, createRequestId());
-      setNotice(result.status === "success" ? `${t.success}: ${participant.name}` : result.status === "already" ? t.already : t.invalid);
+      setNotice(
+        result.status === "success"
+          ? `${t.success}: ${participant.name}`
+          : result.status === "already"
+            ? t.already
+            : t.invalid
+      );
     } catch (error) {
       setNotice(error instanceof Error ? error.message : t.invalid);
     } finally {
@@ -275,7 +368,13 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
     try {
       popup = createInvitationPdfWindow(language);
     } catch (error) {
-      setNotice(error instanceof Error && error.message === "popup-blocked" ? labels.popupBlocked : error instanceof Error ? error.message : t.invalid);
+      setNotice(
+        error instanceof Error && error.message === "popup-blocked"
+          ? labels.popupBlocked
+          : error instanceof Error
+            ? error.message
+            : t.invalid
+      );
       return;
     }
     setBusyId(participant.id);
@@ -284,31 +383,47 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
       openInvitationPdf([{ participant, asset }], language, popup);
     } catch (error) {
       popup.close();
-      setNotice(error instanceof Error && error.message === "popup-blocked" ? labels.popupBlocked : error instanceof Error ? error.message : t.invalid);
+      setNotice(
+        error instanceof Error && error.message === "popup-blocked"
+          ? labels.popupBlocked
+          : error instanceof Error
+            ? error.message
+            : t.invalid
+      );
     } finally {
       setBusyId(null);
     }
   };
 
-  const pdfForAll = async () => {
-    const guests = filtered.filter((participant) => participant.status === "accepted");
-    if (!guests.length) return;
-    let popup: Window | null = null;
+  // CSV Handlers
+  const handleCsvFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (text) {
+        const parsed = parseAttendeesCsv(text);
+        setCsvPreview(parsed);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const commitCsvImport = async () => {
+    if (!csvPreview.length) return;
+    setCsvImporting(true);
     try {
-      popup = createInvitationPdfWindow(language);
-    } catch (error) {
-      setNotice(error instanceof Error && error.message === "popup-blocked" ? labels.popupBlocked : error instanceof Error ? error.message : t.invalid);
-      return;
-    }
-    setPdfBusy(true);
-    try {
-      const entries = await Promise.all(guests.map(async (participant) => ({ participant, asset: await client.getInvitationAsset(participant) })));
-      openInvitationPdf(entries, language, popup);
-    } catch (error) {
-      popup.close();
-      setNotice(error instanceof Error && error.message === "popup-blocked" ? labels.popupBlocked : error instanceof Error ? error.message : t.invalid);
+      const count = await client.importParticipants(csvPreview);
+      setNotice(`${labels.csvSuccess} (${count})`);
+      setShowCsvModal(false);
+      setCsvPreview([]);
+      setCsvFileName("");
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : t.failed);
     } finally {
-      setPdfBusy(false);
+      setCsvImporting(false);
     }
   };
 
@@ -318,100 +433,431 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
     { id: "waiting", label: t.waiting },
     { id: "revoked", label: t.revokedFilter }
   ];
-  const revokedCount = participants.filter((participant) => participant.status === "revoked" && !participant.checkedInAt).length;
+
+  const categoryFilterList: Array<{ id: CategoryFilter; label: string }> = [
+    { id: "all", label: labels.catAll },
+    { id: "vip", label: labels.catVip },
+    { id: "speaker", label: labels.catSpeaker },
+    { id: "delegate", label: labels.catDelegate },
+    { id: "press", label: labels.catPress },
+    { id: "organizer", label: labels.catOrganizer }
+  ];
+
+  const revokedCount = participants.filter((p) => p.status === "revoked" && !p.checkedInAt).length;
 
   return (
     <section className="people-page">
       <div className="page-heading page-heading--people">
-        <h1>{t.people}</h1>
+        <div className="people-title-group">
+          <h1>{t.people}</h1>
+          <span className="people-count-pill">
+            <UsersRound size={15} />
+            <strong>{participants.filter((p) => p.status === "accepted").length}</strong>
+            <span>{t.accepted}</span>
+          </span>
+        </div>
         <div className="people-heading-actions">
-          <button className="secondary-button" onClick={beginAdd}><Plus size={18} />{labels.add}</button>
-          <button className="secondary-button" onClick={() => void restoreAllRevoked()} disabled={!revokedCount || busyId === "restore-all"}><RotateCcw size={18} />{labels.restoreAll}</button>
-          <button className="secondary-button" onClick={() => void pdfForAll()} disabled={pdfBusy}><FileDown size={18} />{labels.pdfAll}</button>
-          <div className="count-badge"><UsersRound size={20} /><strong>{participants.filter((participant) => participant.status === "accepted").length}</strong><span>{t.accepted}</span></div>
+          <button className="primary-button" onClick={beginAdd}>
+            <Plus size={17} />
+            <span>{labels.add}</span>
+          </button>
+          <button className="secondary-button" onClick={() => setShowCsvModal(true)}>
+            <UploadCloud size={17} />
+            <span>{labels.importCsv}</span>
+          </button>
+          {revokedCount > 0 && (
+            <button
+              className="secondary-button"
+              onClick={() => void restoreAllRevoked()}
+              disabled={busyId === "restore-all"}
+            >
+              <RotateCcw size={17} />
+              <span>{labels.restoreAll}</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Manual Add / Edit Inline Panel */}
       {(adding || editingId) && (
         <form className="manual-invite-panel" onSubmit={(event) => void submitParticipant(event)}>
-          <strong>{editingId ? labels.editGuest : labels.addGuest}</strong>
-          <input required value={manualInvite.name} onChange={(event) => setManualInvite({ ...manualInvite, name: event.target.value })} placeholder={labels.name} />
-          <input required type="email" value={manualInvite.email} onChange={(event) => setManualInvite({ ...manualInvite, email: event.target.value })} placeholder={labels.email} />
-          <input value={manualInvite.organization || ""} onChange={(event) => setManualInvite({ ...manualInvite, organization: event.target.value })} placeholder={labels.organization} />
-          <button type="submit" className="primary-button" disabled={busyId === "new" || Boolean(editingId && busyId === editingId)}><Plus size={18} />{labels.save}</button>
-          <button type="button" className="secondary-button" onClick={resetForm}>{labels.cancel}</button>
+          <div className="manual-invite-header">
+            <strong>{editingId ? labels.editGuest : labels.addGuest}</strong>
+            <button type="button" className="close-btn" onClick={resetForm}>
+              <X size={16} />
+            </button>
+          </div>
+          <div className="manual-invite-grid">
+            <input
+              required
+              value={manualInvite.name}
+              onChange={(event) => setManualInvite({ ...manualInvite, name: event.target.value })}
+              placeholder={labels.name}
+            />
+            <input
+              required
+              type="email"
+              value={manualInvite.email}
+              onChange={(event) => setManualInvite({ ...manualInvite, email: event.target.value })}
+              placeholder={labels.email}
+            />
+            <input
+              value={manualInvite.organization || ""}
+              onChange={(event) => setManualInvite({ ...manualInvite, organization: event.target.value })}
+              placeholder={labels.organization}
+            />
+            <input
+              value={manualInvite.title || ""}
+              onChange={(event) => setManualInvite({ ...manualInvite, title: event.target.value })}
+              placeholder={labels.title}
+            />
+            <select
+              value={manualInvite.category || "delegate"}
+              onChange={(e) => setManualInvite({ ...manualInvite, category: e.target.value as ParticipantCategory })}
+              className="category-select"
+            >
+              <option value="delegate">{labels.catDelegate}</option>
+              <option value="vip">{labels.catVip}</option>
+              <option value="speaker">{labels.catSpeaker}</option>
+              <option value="press">{labels.catPress}</option>
+              <option value="organizer">{labels.catOrganizer}</option>
+            </select>
+          </div>
+          <div className="manual-invite-footer">
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={busyId === "new" || Boolean(editingId && busyId === editingId)}
+            >
+              <Check size={17} />
+              <span>{labels.save}</span>
+            </button>
+            <button type="button" className="secondary-button" onClick={resetForm}>
+              {labels.cancel}
+            </button>
+          </div>
         </form>
       )}
 
+      {/* CSV Import Modal */}
+      {showCsvModal && (
+        <div className="modal-backdrop" onClick={() => !csvImporting && setShowCsvModal(false)}>
+          <div className="modal-card csv-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title-row">
+                <UploadCloud size={22} />
+                <h2>{labels.csvModalTitle}</h2>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowCsvModal(false)}
+                disabled={csvImporting}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p className="csv-modal-hint">{labels.csvHelpText}</p>
+
+              <label className="csv-dropzone">
+                <input type="file" accept=".csv,text/csv" onChange={handleCsvFile} disabled={csvImporting} />
+                <UploadCloud size={32} />
+                <strong>{csvFileName || labels.csvUploadBtn}</strong>
+                <span>{isAr ? "اضغط هنا لاختيار ملف .csv" : "Click to browse or drop .csv"}</span>
+              </label>
+
+              {csvPreview.length > 0 && (
+                <div className="csv-preview-container">
+                  <div className="csv-preview-header">
+                    <strong>{labels.csvPreviewTitle}</strong>
+                    <span className="count-chip">{csvPreview.length} {t.accepted}</span>
+                  </div>
+                  <div className="csv-table-wrapper">
+                    <table className="csv-preview-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>{labels.name}</th>
+                          <th>{labels.email}</th>
+                          <th>{labels.category}</th>
+                          <th>{labels.organization}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvPreview.slice(0, 5).map((row, idx) => (
+                          <tr key={idx}>
+                            <td>{idx + 1}</td>
+                            <td><strong>{row.name}</strong></td>
+                            <td>{row.email}</td>
+                            <td>
+                              <span className={`category-pill category-pill--${row.category || "delegate"}`}>
+                                {categoryLabels[row.category || "delegate"]}
+                              </span>
+                            </td>
+                            <td>{row.organization || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {csvPreview.length > 5 && (
+                    <small className="csv-more-rows">
+                      {isAr ? `... و ${csvPreview.length - 5} سجلات أخرى` : `... and ${csvPreview.length - 5} more rows`}
+                    </small>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="primary-button"
+                disabled={csvPreview.length === 0 || csvImporting}
+                onClick={commitCsvImport}
+              >
+                {csvImporting ? <RotateCcw className="spin" size={17} /> : <Check size={17} />}
+                <span>{labels.csvConfirmBtn} ({csvPreview.length})</span>
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowCsvModal(false)}
+                disabled={csvImporting}
+              >
+                {labels.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Toolbar */}
       <div className="people-toolbar">
         <label className="search-box">
-          <Search size={20} />
-          <input aria-label={t.search} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} />
-          {query && <button onClick={() => setQuery("")} aria-label="Clear">×</button>}
+          <Search size={19} />
+          <input
+            aria-label={t.search}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t.search}
+          />
+          {query && (
+            <button onClick={() => setQuery("")} aria-label="Clear">
+              ×
+            </button>
+          )}
         </label>
+
+        {/* Status Filters */}
         <div className="filter-tabs">
-          {filters.map((item) => <button key={item.id} className={filter === item.id ? "active" : ""} onClick={() => setFilter(item.id)}>{item.label}</button>)}
+          {filters.map((item) => (
+            <button
+              key={item.id}
+              className={filter === item.id ? "active" : ""}
+              onClick={() => setFilter(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {notice && <div className="toast-notice" role="status"><ShieldCheck size={18} />{notice}<button onClick={() => setNotice(null)}>×</button></div>}
+      {/* Category Pills Filter Bar */}
+      <div className="category-filter-bar">
+        <Tag size={14} />
+        {categoryFilterList.map((item) => (
+          <button
+            key={item.id}
+            className={`category-filter-chip ${categoryFilter === item.id ? "active" : ""}`}
+            onClick={() => setCategoryFilter(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
+      {notice && (
+        <div className="toast-notice" role="status">
+          <ShieldCheck size={18} />
+          {notice}
+          <button onClick={() => setNotice(null)}>×</button>
+        </div>
+      )}
+
+      {/* Participants List */}
       <div className="participants-list">
-        {visibleParticipants.length ? visibleParticipants.map((participant) => (
-          <article className="participant-row" key={participant.id}>
-            <div className={`avatar ${participant.checkedInAt ? "is-checked" : participant.status === "revoked" ? "is-revoked" : ""}`}>
-              {participant.checkedInAt ? <Check size={20} /> : participant.name.trim().slice(0, 1)}
-            </div>
-            <div className="participant-main">
-              <div className="participant-heading">
-                <strong>{participant.name}</strong>
-                <span className={`rsvp-dot ${participant.confirmationStatus}`} title={confirmationTitle(participant)} aria-label={confirmationTitle(participant)}>
-                  {participant.confirmationStatus === "confirmed" ? <CheckCircle2 size={15} /> : participant.confirmationStatus === "declined" ? <XCircle size={15} /> : <CircleHelp size={15} />}
-                </span>
-                <span className={`participant-state ${participant.status === "revoked" ? "revoked" : participant.checkedInAt ? "checked" : "waiting"}`}>
-                  {participant.status === "revoked" ? <Ban size={13} /> : participant.checkedInAt ? <UserCheck size={13} /> : <Clock3 size={13} />}
-                  {participant.status === "revoked" ? t.revokedFilter : participant.checkedInAt ? t.checked : t.waiting}
-                </span>
-              </div>
-              <div className="participant-details">
-                <span><Mail size={14} />{participant.email}</span>
-                {participant.organization && <span>{participant.organization}</span>}
-              </div>
-              {participant.checkedInAt && <small>{formatEventTime(participant.checkedInAt, language)} · {participant.stationName}</small>}
-            </div>
-            <div className="participant-actions">
-              {participant.status === "accepted" && (
-                <button className="small-icon-button" onClick={() => void pdfFor(participant)} disabled={busyId === participant.id} title={labels.pdf}><FileDown size={17} /></button>
-              )}
-              {!participant.checkedInAt && (
-                <button className="small-icon-button" onClick={() => beginEdit(participant)} disabled={busyId === participant.id} title={labels.edit}><Pencil size={17} /></button>
-              )}
-              {participant.status === "accepted" && !participant.checkedInAt && (
-                <button className="small-primary-button" onClick={() => void checkIn(participant)} disabled={busyId === participant.id}>
-                  <UserCheck size={17} />{t.manualCheckIn}
-                </button>
-              )}
-              {participant.status === "accepted" && !participant.checkedInAt && (
-                <button className="small-icon-button danger" onClick={() => void revoke(participant)} disabled={busyId === participant.id} title={t.revoke}><Ban size={17} /></button>
-              )}
-              {participant.status === "accepted" && participant.checkedInAt && participant.checkInId && (
-                <button className="small-primary-button" onClick={() => void correctAttendance(participant)} disabled={busyId === participant.id}>
-                  <RotateCcw size={17} />{labels.correction}
-                </button>
-              )}
-              {participant.status === "revoked" && (
-                <button className="small-primary-button" onClick={() => void restore(participant)} disabled={busyId === participant.id}>
-                  <RotateCcw size={17} />{labels.restore}
-                </button>
-              )}
-              {!participant.checkedInAt && (
-                <button className="small-icon-button danger" onClick={() => void deleteParticipant(participant)} disabled={busyId === participant.id} title={labels.delete}><Trash2 size={17} /></button>
-              )}
-            </div>
-          </article>
-        )) : (
-          <div className="empty-state"><Search size={35} /><strong>{t.noResults}</strong></div>
+        {visibleParticipants.length ? (
+          visibleParticipants.map((participant) => {
+            const cat = participant.category || "delegate";
+            return (
+              <article className="participant-row" key={participant.id}>
+                <div
+                  className={`avatar ${
+                    participant.checkedInAt
+                      ? "is-checked"
+                      : participant.status === "revoked"
+                        ? "is-revoked"
+                        : ""
+                  }`}
+                >
+                  {participant.checkedInAt ? <Check size={20} /> : participant.name.trim().slice(0, 1)}
+                </div>
+
+                <div className="participant-main">
+                  <div className="participant-heading">
+                    <strong className="participant-name">{participant.name}</strong>
+
+                    <span className={`category-pill category-pill--${cat}`}>
+                      {categoryLabels[cat]}
+                    </span>
+
+                    <span
+                      className={`rsvp-dot ${participant.confirmationStatus}`}
+                      title={confirmationTitle(participant)}
+                      aria-label={confirmationTitle(participant)}
+                    >
+                      {participant.confirmationStatus === "confirmed" ? (
+                        <CheckCircle2 size={14} />
+                      ) : participant.confirmationStatus === "declined" ? (
+                        <XCircle size={14} />
+                      ) : (
+                        <CircleHelp size={14} />
+                      )}
+                    </span>
+
+                    <span
+                      className={`participant-state ${
+                        participant.status === "revoked"
+                          ? "revoked"
+                          : participant.checkedInAt
+                            ? "checked"
+                            : "waiting"
+                      }`}
+                    >
+                      {participant.status === "revoked" ? (
+                        <Ban size={13} />
+                      ) : participant.checkedInAt ? (
+                        <UserCheck size={13} />
+                      ) : (
+                        <Clock3 size={13} />
+                      )}
+                      {participant.status === "revoked"
+                        ? t.revokedFilter
+                        : participant.checkedInAt
+                          ? t.checked
+                          : t.waiting}
+                    </span>
+                  </div>
+
+                  <div className="participant-details">
+                    <span>
+                      <Mail size={13} />
+                      {participant.email}
+                    </span>
+                    {participant.organization && (
+                      <span className="participant-org">{participant.organization}</span>
+                    )}
+                    {participant.title && (
+                      <span className="participant-role-title">({participant.title})</span>
+                    )}
+                  </div>
+
+                  {participant.checkedInAt && (
+                    <small className="participant-checkin-meta">
+                      {formatEventTime(participant.checkedInAt, language)} · {participant.stationName}
+                    </small>
+                  )}
+                </div>
+
+                <div className="participant-actions">
+                  {participant.status === "accepted" && (
+                    <button
+                      className="small-icon-button"
+                      onClick={() => void pdfFor(participant)}
+                      disabled={busyId === participant.id}
+                      title={labels.pdf}
+                      aria-label={labels.pdf}
+                    >
+                      <FileDown size={17} />
+                    </button>
+                  )}
+                  {!participant.checkedInAt && (
+                    <button
+                      className="small-icon-button"
+                      onClick={() => beginEdit(participant)}
+                      disabled={busyId === participant.id}
+                      title={labels.edit}
+                      aria-label={labels.edit}
+                    >
+                      <Pencil size={17} />
+                    </button>
+                  )}
+                  {participant.status === "accepted" && !participant.checkedInAt && (
+                    <button
+                      className="small-primary-button"
+                      onClick={() => void checkIn(participant)}
+                      disabled={busyId === participant.id}
+                    >
+                      <UserCheck size={16} />
+                      <span>{t.manualCheckIn}</span>
+                    </button>
+                  )}
+                  {participant.status === "accepted" && !participant.checkedInAt && (
+                    <button
+                      className="small-icon-button danger"
+                      onClick={() => void revoke(participant)}
+                      disabled={busyId === participant.id}
+                      title={t.revoke}
+                      aria-label={t.revoke}
+                    >
+                      <Ban size={17} />
+                    </button>
+                  )}
+                  {participant.status === "accepted" && participant.checkedInAt && participant.checkInId && (
+                    <button
+                      className="small-primary-button"
+                      onClick={() => void correctAttendance(participant)}
+                      disabled={busyId === participant.id}
+                    >
+                      <RotateCcw size={15} />
+                      <span>{labels.correction}</span>
+                    </button>
+                  )}
+                  {participant.status === "revoked" && (
+                    <button
+                      className="small-primary-button"
+                      onClick={() => void restore(participant)}
+                      disabled={busyId === participant.id}
+                    >
+                      <RotateCcw size={15} />
+                      <span>{labels.restore}</span>
+                    </button>
+                  )}
+                  {!participant.checkedInAt && (
+                    <button
+                      className="small-icon-button danger"
+                      onClick={() => void deleteParticipant(participant)}
+                      disabled={busyId === participant.id}
+                      title={labels.delete}
+                      aria-label={labels.delete}
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })
+        ) : (
+          <div className="empty-state">
+            <Search size={35} />
+            <strong>{t.noResults}</strong>
+          </div>
         )}
+
         {filtered.length > visibleCount && (
           <div className="pagination-panel" style={{ display: "flex", justifyContent: "center", padding: "16px" }}>
             <button
@@ -419,7 +865,7 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
               className="secondary-button"
               onClick={() => setVisibleCount((prev) => prev + 50)}
             >
-              {language === "ar"
+              {isAr
                 ? `عرض المزيد (${filtered.length - visibleCount} متبقٍ)`
                 : `Load More (${filtered.length - visibleCount} remaining)`}
             </button>

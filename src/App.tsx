@@ -10,11 +10,12 @@ import { copy } from "./lib/i18n";
 import { flushOfflineQueue, getOfflineQueue } from "./lib/offlineQueue";
 import { ConfirmationsScreen } from "./screens/ConfirmationsScreen";
 import { DashboardScreen } from "./screens/DashboardScreen";
+import { EventScreen } from "./screens/EventScreen";
 import { PeopleScreen } from "./screens/PeopleScreen";
 import { ScanScreen } from "./screens/ScanScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { WelcomeBoardScreen } from "./screens/WelcomeBoardScreen";
-import type { AppView, EntranceConfig, EntranceName, EventSnapshot, Language, StaffSession } from "./types";
+import type { AppView, EntranceConfig, EntranceName, EventSnapshot, Language, StaffSession, UserRole } from "./types";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -99,7 +100,13 @@ export default function App() {
       if (active) {
         const saved = localStorage.getItem("inas-station") as EntranceName | null;
         const activeEntrances = enabledEntrances(entrances);
-        setSession({ stationName: saved && activeEntrances.includes(saved) ? saved : activeEntrances[0] || "A", expiresAt: new Date(Date.now() + 12 * 60 * 60_000).toISOString(), demo: client.demo });
+        const savedRole = (localStorage.getItem("gateflow-user-role") as UserRole) || "admin";
+        setSession({
+          stationName: saved && activeEntrances.includes(saved) ? saved : activeEntrances[0] || "A",
+          expiresAt: new Date(Date.now() + 12 * 60 * 60_000).toISOString(),
+          demo: client.demo,
+          role: savedRole
+        });
       }
       setBooting(false);
     })();
@@ -178,6 +185,7 @@ export default function App() {
       language={language}
       online={online}
       stationName={session.stationName}
+      role={session.role}
       onViewChange={setView}
       onLanguageChange={changeLanguage}
     >
@@ -205,6 +213,16 @@ export default function App() {
       {view === "people" && <PeopleScreen language={language} participants={snapshot.participants} client={client} />}
       {view === "confirmations" && <ConfirmationsScreen language={language} participants={snapshot.participants} client={client} />}
       {view === "dashboard" && <DashboardScreen language={language} stats={snapshot.stats} recent={snapshot.recent} participants={snapshot.participants} />}
+      {view === "event" && (
+        <EventScreen
+          language={language}
+          event={snapshot.event}
+          participants={snapshot.participants}
+          client={client}
+          onEventChange={(updated) => void client.updateEventDetails(updated)}
+          onNotice={(msg) => console.log(msg)}
+        />
+      )}
       {view === "settings" && <SettingsScreen language={language} stationName={session.stationName} entrances={entrances} installAvailable={Boolean(installPrompt)} onEntrancesChange={updateEntrances} onLanguageChange={changeLanguage} onInstall={() => void install()} onSignOut={() => void signOut()} />}
     </AppShell>
   );

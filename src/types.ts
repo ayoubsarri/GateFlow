@@ -1,11 +1,24 @@
 export type Language = "ar" | "en";
+export type UserRole = "admin" | "staff";
 export type EventStatus = "draft" | "live" | "closed";
 export type InviteStatus = "pending" | "leased" | "sent" | "failed" | "unknown";
 export type ParticipantStatus = "accepted" | "revoked";
 export type ConfirmationStatus = "unknown" | "confirmed" | "declined";
 export type CheckInMethod = "qr" | "manual";
 export type EntranceName = string;
-export type AppView = "scan" | "people" | "confirmations" | "dashboard" | "settings" | "welcome-board";
+export type AppView = "scan" | "people" | "confirmations" | "dashboard" | "event" | "settings" | "welcome-board";
+export type ParticipantCategory = "delegate" | "vip" | "speaker" | "press" | "organizer";
+
+export type ThemeName = "teal" | "indigo" | "sapphire" | "slate" | "crimson" | "emerald";
+
+export interface ThemeOption {
+  id: ThemeName;
+  name: LocalizedText;
+  brand: string;
+  brandDeep: string;
+  gold: string;
+  surface: string;
+}
 
 export interface LocalizedText {
   ar: string;
@@ -23,6 +36,7 @@ export interface EventRecord {
   timezone: string;
   status: EventStatus;
   activeRosterId: string;
+  logoUrl?: string;
 }
 
 export interface Participant {
@@ -31,6 +45,7 @@ export interface Participant {
   email: string;
   title?: string;
   organization?: string;
+  category?: ParticipantCategory;
   ticketHash?: string;
   status: ParticipantStatus;
   inviteStatus: InviteStatus;
@@ -85,6 +100,7 @@ export interface StaffSession {
   stationName: EntranceName;
   expiresAt: string;
   demo: boolean;
+  role: UserRole;
 }
 
 export interface EntranceConfig {
@@ -97,6 +113,7 @@ export interface ManualInviteInput {
   email: string;
   organization?: string;
   title?: string;
+  category?: ParticipantCategory;
 }
 
 export interface InvitationAsset {

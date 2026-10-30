@@ -1,8 +1,8 @@
-import { ArrowLeft, ArrowRight, LoaderCircle, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowRight, LoaderCircle, LockKeyhole, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { BrandLogo } from "./BrandLogo";
 import { copy } from "../lib/i18n";
-import type { EntranceName, Language, StaffSession } from "../types";
+import type { EntranceName, Language, StaffSession, UserRole } from "../types";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60 * 1000;
@@ -23,6 +23,7 @@ interface LoginScreenProps {
 export function LoginScreen({ language, entrances, onLanguageChange, onSubmit }: LoginScreenProps) {
   const t = copy[language];
   const savedStation = localStorage.getItem("inas-station") as EntranceName | null;
+  const [role, setRole] = useState<UserRole>("staff");
   const [pin, setPin] = useState("");
   const [stationName, setStationName] = useState<EntranceName>(savedStation && entrances.includes(savedStation) ? savedStation : entrances[0] || "A");
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,8 @@ export function LoginScreen({ language, entrances, onLanguageChange, onSubmit }:
     setError(false);
     setLoading(true);
     try {
-      await onSubmit(pin, stationName);
+      const activeStation = role === "admin" ? "Admin" : stationName;
+      await onSubmit(pin, activeStation);
       localStorage.removeItem("inas-login-attempts");
       localStorage.removeItem("inas-lockout-until");
     } catch {
@@ -81,12 +83,46 @@ export function LoginScreen({ language, entrances, onLanguageChange, onSubmit }:
           <h1>{t.signIn}</h1>
         </div>
 
-        <fieldset className="station-picker">
-          <legend>{t.station}</legend>
-          {entrances.map((entrance) => (
-            <button type="button" key={entrance} className={stationName === entrance ? "active" : ""} onClick={() => setStationName(entrance)}>{entrance}</button>
-          ))}
-        </fieldset>
+        {/* Role Selector Segmented Control */}
+        <div className="login-role-segmented">
+          <button
+            type="button"
+            className={role === "staff" ? "active" : ""}
+            onClick={() => setRole("staff")}
+          >
+            <Users size={16} />
+            <span>{t.staffRole}</span>
+          </button>
+          <button
+            type="button"
+            className={role === "admin" ? "active" : ""}
+            onClick={() => setRole("admin")}
+          >
+            <ShieldCheck size={16} />
+            <span>{t.admin}</span>
+          </button>
+        </div>
+
+        {role === "staff" ? (
+          <fieldset className="station-picker">
+            <legend>{t.station}</legend>
+            {entrances.map((entrance) => (
+              <button
+                type="button"
+                key={entrance}
+                className={stationName === entrance ? "active" : ""}
+                onClick={() => setStationName(entrance)}
+              >
+                {entrance}
+              </button>
+            ))}
+          </fieldset>
+        ) : (
+          <div className="admin-login-notice">
+            <ShieldCheck size={18} className="text-gold" />
+            <span>{language === "ar" ? "صلاحيات المشرف الكاملة (إدارة الفعالية والمظهر)" : "Full Event Admin Privileges (Events, Badges, Theming)"}</span>
+          </div>
+        )}
 
         <label className="field">
           <span>{t.pin}</span>
@@ -96,11 +132,15 @@ export function LoginScreen({ language, entrances, onLanguageChange, onSubmit }:
             type="password"
             inputMode="numeric"
             autoComplete="one-time-code"
-            placeholder="••••••"
+            placeholder={role === "admin" ? "999999" : "••••••"}
             required
             disabled={loading || lockoutSeconds > 0}
           />
         </label>
+
+        <div className="login-hint-pill">
+          <small>{language === "ar" ? "رمز الطاقم: 121212 أو 2026 · رمز المشرف: 999999" : "Staff PIN: 121212 / 2026 · Admin PIN: 999999"}</small>
+        </div>
 
         {lockoutSeconds > 0 ? (
           <div className="form-error" role="alert">
@@ -111,6 +151,7 @@ export function LoginScreen({ language, entrances, onLanguageChange, onSubmit }:
         ) : error ? (
           <div className="form-error" role="alert">{t.loginError}</div>
         ) : null}
+
         <button className="primary-button primary-button--large" disabled={loading || !pin || lockoutSeconds > 0}>
           {loading ? <LoaderCircle className="spin" size={21} /> : <Arrow size={20} />}
           <span>{loading ? t.loading : t.enter}</span>

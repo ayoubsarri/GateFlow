@@ -1,8 +1,9 @@
-import { Download, Globe2, LogOut, MonitorSmartphone, Plus, ToggleLeft, Trash2, X } from "lucide-react";
+import { Download, Globe2, LogOut, MonitorSmartphone, Palette, Plus, ToggleLeft, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { copy } from "../lib/i18n";
 import { addEntrance, removeEntrance } from "../lib/entrances";
-import type { EntranceConfig, Language } from "../types";
+import { getAvailableThemes, getCurrentTheme, setTheme } from "../lib/theme";
+import type { EntranceConfig, Language, ThemeName } from "../types";
 
 interface SettingsScreenProps {
   language: Language;
@@ -27,7 +28,14 @@ export function SettingsScreen({
 }: SettingsScreenProps) {
   const t = copy[language];
   const [newGateName, setNewGateName] = useState("");
+  const [activeTheme, setActiveTheme] = useState<ThemeName>(getCurrentTheme);
   const isAr = language === "ar";
+  const themes = getAvailableThemes();
+
+  const handleSelectTheme = (id: ThemeName) => {
+    setTheme(id);
+    setActiveTheme(id);
+  };
 
   const labels = isAr
     ? {
@@ -141,6 +149,38 @@ export function SettingsScreen({
               <span>{labels.addGate}</span>
             </button>
           </form>
+        </div>
+
+        {/* Color Theme Selector */}
+        <div className="settings-action-row settings-action-row--stack">
+          <div>
+            <Palette size={19} />
+            <div>
+              <strong>{isAr ? "سمة وألوان التطبيق (Theme)" : "App Color Theme"}</strong>
+              <span>{isAr ? "اختر لوحة الألوان المتناسقة للفعالية والشاشات." : "Select a harmonious color palette for the event."}</span>
+            </div>
+          </div>
+          <div className="theme-swatch-grid">
+            {themes.map((th) => {
+              const isSelected = activeTheme === th.id;
+              return (
+                <button
+                  key={th.id}
+                  type="button"
+                  className={`theme-pill-item ${isSelected ? "active" : ""}`}
+                  onClick={() => handleSelectTheme(th.id)}
+                  title={th.name[language]}
+                >
+                  <div className="theme-swatch-colors">
+                    <span className="swatch-circle" style={{ background: th.brand }} />
+                    <span className="swatch-circle" style={{ background: th.gold }} />
+                  </div>
+                  <span className="theme-name-label">{th.name[language]}</span>
+                  {isSelected && <span className="theme-active-dot">✓</span>}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="settings-action-row">

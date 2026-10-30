@@ -73,8 +73,24 @@ export function makeDemoSnapshot(participants = demoParticipants): EventSnapshot
     }))
     .sort((a, b) => b.checkedInAt.localeCompare(a.checkedInAt));
 
+  let event = demoEvent;
+  if (typeof localStorage !== "undefined") {
+    try {
+      const saved = localStorage.getItem("gateflow-event-details");
+      if (saved) {
+        event = { ...demoEvent, ...JSON.parse(saved) };
+      }
+      const customLogo = localStorage.getItem("gateflow-custom-logo");
+      if (customLogo) {
+        event = { ...event, logoUrl: customLogo };
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
   return {
-    event: demoEvent,
+    event,
     participants,
     stats: calculateStats(participants),
     recent
