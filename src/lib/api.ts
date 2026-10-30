@@ -225,12 +225,7 @@ class FirebaseEventClient implements EventClient {
       const partSnap = await getDocs(query(participantsRef, limit(400)));
       const resetBatch = writeBatch(db);
       partSnap.forEach((docSnap) => {
-        resetBatch.update(docSnap.ref, {
-          checkedInAt: null,
-          checkInId: null,
-          stationName: null,
-          checkInMethod: null
-        });
+        resetBatch.delete(docSnap.ref);
       });
       await resetBatch.commit();
     } catch (err) {

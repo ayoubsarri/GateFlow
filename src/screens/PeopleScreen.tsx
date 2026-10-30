@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   CircleHelp,
   Clock3,
-  FileDown,
   Mail,
   Pencil,
   Plus,
@@ -23,7 +22,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { createRequestId, formatEventTime, matchesParticipantWithNeedle, normalizeText } from "../lib/domain";
 import { copy } from "../lib/i18n";
-import { createInvitationPdfWindow, openInvitationPdf } from "../lib/invitationPdf";
 import { parseAttendeesCsv } from "../lib/csvImport";
 import type { EventClient } from "../lib/api";
 import type { Language, ManualInviteInput, Participant, ParticipantCategory } from "../types";
@@ -81,7 +79,6 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
         category: "فئة المشارك",
         save: "حفظ",
         cancel: "إلغاء",
-        pdf: "شارة PDF",
         restore: "استرجاع",
         restoreAll: "استرجاع الملغى",
         edit: "تعديل",
@@ -98,7 +95,6 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
         deleted: "تم حذف المدعو.",
         correction: "تصحيح الحضور",
         corrected: "تم تصحيح الحضور.",
-        popupBlocked: "يرجى السماح بفتح النوافذ المنبثقة لتحميل PDF.",
         confirmed: "مؤكد",
         unconfirmed: "لم يؤكد",
         declined: "اعتذر عن الحضور",
@@ -127,7 +123,6 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
         category: "Participant Category",
         save: "Save",
         cancel: "Cancel",
-        pdf: "PDF Badge",
         restore: "Restore",
         restoreAll: "Restore Revoked",
         edit: "Edit",
@@ -144,7 +139,6 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
         deleted: "Guest deleted.",
         correction: "Correct",
         corrected: "Attendance corrected.",
-        popupBlocked: "Allow pop-ups to open the PDF badge.",
         confirmed: "Confirmed",
         unconfirmed: "No reply",
         declined: "Declined",
@@ -358,38 +352,6 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
       setNotice(labels.deleted);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : t.invalid);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const pdfFor = async (participant: Participant) => {
-    let popup: Window | null = null;
-    try {
-      popup = createInvitationPdfWindow(language);
-    } catch (error) {
-      setNotice(
-        error instanceof Error && error.message === "popup-blocked"
-          ? labels.popupBlocked
-          : error instanceof Error
-            ? error.message
-            : t.invalid
-      );
-      return;
-    }
-    setBusyId(participant.id);
-    try {
-      const asset = await client.getInvitationAsset(participant);
-      openInvitationPdf([{ participant, asset }], language, popup);
-    } catch (error) {
-      popup.close();
-      setNotice(
-        error instanceof Error && error.message === "popup-blocked"
-          ? labels.popupBlocked
-          : error instanceof Error
-            ? error.message
-            : t.invalid
-      );
     } finally {
       setBusyId(null);
     }
@@ -773,17 +735,6 @@ export function PeopleScreen({ language, participants, client }: PeopleScreenPro
                 </div>
 
                 <div className="participant-actions">
-                  {participant.status === "accepted" && (
-                    <button
-                      className="small-icon-button"
-                      onClick={() => void pdfFor(participant)}
-                      disabled={busyId === participant.id}
-                      title={labels.pdf}
-                      aria-label={labels.pdf}
-                    >
-                      <FileDown size={17} />
-                    </button>
-                  )}
                   {!participant.checkedInAt && (
                     <button
                       className="small-icon-button"
