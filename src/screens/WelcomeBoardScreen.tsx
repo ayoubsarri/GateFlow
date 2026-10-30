@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { ArrowLeft, Clock, Eye, EyeOff, Maximize, Minimize, Volume2, VolumeX, MapPin, Building, ShieldCheck, Calendar, Activity } from "lucide-react";
+import { ArrowLeft, Clock, Eye, EyeOff, Maximize, Minimize, Volume2, VolumeX, MapPin, Building, ShieldCheck, DoorOpen } from "lucide-react";
 import { BrandLogo } from "../components/BrandLogo";
 import type { CheckInRecord, EventRecord, Language, Participant } from "../types";
 
@@ -25,12 +25,22 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
     stationName: string;
     timestamp: string;
   } | null>(null);
+  const [arrivalExpiresAt, setArrivalExpiresAt] = useState<number>(0);
 
-  // Live Clock updater
+  // Live Clock updater & automatic return to idle summit display after 25s
   useEffect(() => {
-    const timer = setInterval(() => setClock(new Date()), 1000);
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setClock(new Date());
+      setActiveArrival((current) => {
+        if (current && now > arrivalExpiresAt && arrivalExpiresAt > 0) {
+          return null;
+        }
+        return current;
+      });
+    }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [arrivalExpiresAt]);
 
   // Monitor latest check-in
   const latestCheckIn = recent[0] || null;
@@ -40,7 +50,9 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
     if (latestCheckIn.id !== lastCheckInId) {
       setLastCheckInId(latestCheckIn.id);
 
-      const match = participants.find((p) => p.id === latestCheckIn.participantId || p.name === latestCheckIn.participantName);
+      const match = participants.find(
+        (p) => p.id === latestCheckIn.participantId || p.name === latestCheckIn.participantName
+      );
 
       const arrivalData = {
         id: latestCheckIn.id,
@@ -52,39 +64,35 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
       };
 
       setActiveArrival(arrivalData);
+      setArrivalExpiresAt(Date.now() + 25000);
 
-      // Play prestigious welcome chime
+      // Prestigious audio chime
       if (soundEnabled) {
         try {
-          const AudioContextValue = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const AudioContextValue =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
           if (AudioContextValue) {
             const ctx = new AudioContextValue();
             const now = ctx.currentTime;
-            // Pentatonic arpeggio chime: F5 (698.46) -> A5 (880.00) -> C6 (1046.50)
+            // Pentatonic chords: F5 (698.46) -> A5 (880.00) -> C6 (1046.50)
             const freqs = [698.46, 880.00, 1046.50];
             freqs.forEach((freq, idx) => {
               const osc = ctx.createOscillator();
               const gain = ctx.createGain();
               osc.type = "sine";
               osc.frequency.value = freq;
-              gain.gain.setValueAtTime(0.08, now + idx * 0.12);
-              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.4);
+              gain.gain.setValueAtTime(0.07, now + idx * 0.12);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.45);
               osc.connect(gain).connect(ctx.destination);
               osc.start(now + idx * 0.12);
-              osc.stop(now + idx * 0.12 + 0.4);
+              osc.stop(now + idx * 0.12 + 0.45);
             });
           }
         } catch {
           // Audio blocked
         }
       }
-
-      // Keep active arrival spotlight for 30 seconds before returning to idle schedule
-      const timeout = setTimeout(() => {
-        setActiveArrival(null);
-      }, 30000);
-
-      return () => clearTimeout(timeout);
     }
   }, [latestCheckIn, lastCheckInId, participants, soundEnabled]);
 
@@ -98,7 +106,7 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
         setIsFullscreen(false);
       }
     } catch {
-      // Fullscreen not permitted
+      // Fullscreen not allowed
     }
   };
 
@@ -106,9 +114,9 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
   const totalAccepted = participants.length || 1;
   const occupancyPercent = Math.round((totalCheckedIn / totalAccepted) * 100);
 
-  // Gate breakdown calculation
+  // Dynamic Gate breakdown
   const gateBreakdown = useMemo(() => {
-    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
+    const counts: Record<string, number> = {};
     participants.forEach((p) => {
       if (p.checkedInAt && p.stationName) {
         counts[p.stationName] = (counts[p.stationName] || 0) + 1;
@@ -124,68 +132,70 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
     return `${parts[0]} ${parts[parts.length - 1][0]}.`;
   };
 
-  // 20-segment LED occupancy bar
-  const totalSegments = 20;
-  const activeSegments = Math.round((occupancyPercent / 100) * totalSegments);
-
   return (
-    <div className="wb-editorial-root" dir="ltr">
-      {/* Real Venue Photography Background with Deep Duotone Wash */}
-      <div className="wb-background-layer">
-        <div className="wb-photo-duotone" style={{ backgroundImage: "url('/audience-hall.jpg')" }} />
-        <div className="wb-ink-overlay" />
-        <div className="wb-grid-marks" />
+    <div className="wb-minimal-root" dir="ltr">
+      {/* Cinematic Venue Atmospheric Backdrop */}
+      <div className="wb-ambient-canvas">
+        <div className="wb-venue-layer" style={{ backgroundImage: "url('/audience-hall.jpg')" }} />
+        <div className="wb-vignette-wash" />
+        <div className="wb-subtle-grid" />
       </div>
 
-      {/* Top Editorial Masthead */}
-      <header className="wb-masthead">
-        <div className="wb-masthead-left">
-          <div className="wb-logo-plate">
+      {/* Top Sleek Hairline Masthead */}
+      <header className="wb-sleek-bar">
+        <div className="wb-bar-brand">
+          <div className="wb-logo-capsule">
             <BrandLogo />
           </div>
-          <div className="wb-edition-meta">
-            <span className="wb-eyebrow">NATIONAL SCIENTIFIC CONVENTION · ALGIERS</span>
-            <h1 className="wb-event-headline">INAS ANNUAL PLENARY 2026</h1>
-            <p className="wb-event-arabic">الملتقى الوطني لشبكة العلماء والخبراء الجزائريين</p>
+          <div className="wb-brand-text">
+            <span className="wb-pill-label">ALGIERS 2026</span>
+            <strong className="wb-title-text">INAS ANNUAL PLENARY</strong>
           </div>
         </div>
 
-        <div className="wb-masthead-right">
-          {/* Real-time Clock */}
-          <div className="wb-clock-box">
-            <Clock size={16} className="text-gold" />
-            <span className="wb-clock-time">
+        {/* Center Minimalist Attendance Capsule */}
+        <div className="wb-center-pulse">
+          <span className="wb-pulse-emerald" />
+          <strong className="wb-pulse-stat">
+            {totalCheckedIn} / {totalAccepted}
+          </strong>
+          <span className="wb-pulse-label">
+            DELEGATES ARRIVED · {occupancyPercent}% SEATED
+          </span>
+        </div>
+
+        {/* Right Precision Monospace Clock & Screen Controls */}
+        <div className="wb-bar-actions">
+          <div className="wb-clock-capsule">
+            <Clock size={15} className="text-gold" />
+            <span className="wb-clock-digits">
               {String(clock.getHours()).padStart(2, "0")}:
               {String(clock.getMinutes()).padStart(2, "0")}:
               {String(clock.getSeconds()).padStart(2, "0")}
             </span>
-            <span className="wb-clock-tz">WAT (UTC+1)</span>
+            <small>WAT</small>
           </div>
 
-          {/* Folio Controls */}
-          <div className="wb-controls-group">
+          <div className="wb-action-icons">
             <button
-              className={`wb-tool-btn ${privacyMode ? "is-active" : ""}`}
+              className={`wb-icon-btn ${privacyMode ? "active" : ""}`}
               onClick={() => setPrivacyMode(!privacyMode)}
-              title={privacyMode ? "Privacy Mode (Masked)" : "Full Names Mode"}
+              title={privacyMode ? "Privacy Mask Enabled" : "Full Names Display"}
             >
               {privacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
-
             <button
-              className={`wb-tool-btn ${soundEnabled ? "is-active" : ""}`}
+              className={`wb-icon-btn ${soundEnabled ? "active" : ""}`}
               onClick={() => setSoundEnabled(!soundEnabled)}
-              title={soundEnabled ? "Audio Chime ON" : "Audio Muted"}
+              title={soundEnabled ? "Audio On" : "Muted"}
             >
               {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
-
-            <button className="wb-tool-btn" onClick={toggleFullscreen} title="Fullscreen Toggle">
+            <button className="wb-icon-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
               {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             </button>
-
             {onBack && (
-              <button className="wb-tool-btn wb-exit-btn" onClick={onBack} title="Exit Screen">
+              <button className="wb-icon-btn wb-exit-btn" onClick={onBack} title="Exit Welcome Screen">
                 <ArrowLeft size={16} />
               </button>
             )}
@@ -193,217 +203,128 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
         </div>
       </header>
 
-      {/* Main Editorial Workspace: 65% Arrival Stage / 35% Auditorium Telemetry */}
-      <div className="wb-main-split">
-        {/* Left: The Grand Arrival Spotlight Stage */}
-        <section className="wb-stage-column">
-          {activeArrival ? (
-            <article className="wb-arrival-dossier" key={activeArrival.id}>
-              {/* Technical Registration Marks */}
-              <span className="wb-reg-mark mark-tl">┌</span>
-              <span className="wb-reg-mark mark-tr">┐</span>
-              <span className="wb-reg-mark mark-bl">└</span>
-              <span className="wb-reg-mark mark-br">┘</span>
-
-              <div className="wb-dossier-header">
-                <div className="wb-highlighter-tag">
-                  <span>DELEGATE ARRIVAL · بطاقة وصول معتمدة</span>
-                </div>
-                <div className="wb-verified-badge">
-                  <ShieldCheck size={18} />
-                  <span>OFFICIALLY VERIFIED</span>
-                </div>
-              </div>
-
-              <div className="wb-salutation-line">
-                <h2>أهلاً وسهلاً بكم في الجلسة الافتتاحية</h2>
-                <h3>Welcome to the Annual Plenary Session</h3>
-              </div>
-
-              <div className="wb-guest-block">
-                <h1 className="wb-guest-primary-name">{formatDisplayName(activeArrival.name)}</h1>
-                {activeArrival.title && <span className="wb-guest-title-tag">{activeArrival.title}</span>}
-              </div>
-
-              {activeArrival.organization && (
-                <div className="wb-guest-institution-box">
-                  <Building size={20} className="text-gold" />
-                  <span className="wb-institution-text">{activeArrival.organization}</span>
-                </div>
-              )}
-
-              {/* Physical Boarding Slip / Gate Manifest Stamp */}
-              <div className="wb-manifest-footer">
-                <div className="wb-manifest-cell">
-                  <span className="wb-manifest-lbl">ACCESS GATE · المدخل</span>
-                  <strong className="wb-manifest-val gate-val">
-                    <MapPin size={16} />
-                    GATE {activeArrival.stationName || "A"}
-                  </strong>
-                </div>
-
-                <div className="wb-manifest-cell">
-                  <span className="wb-manifest-lbl">ENTRY TIMESTAMP</span>
-                  <strong className="wb-manifest-val">
-                    {new Date(activeArrival.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </strong>
-                </div>
-
-                <div className="wb-manifest-cell">
-                  <span className="wb-manifest-lbl">SECURITY CLEARANCE</span>
-                  <strong className="wb-manifest-val clearance-val">✓ VALIDATED PASS</strong>
-                </div>
-              </div>
-            </article>
-          ) : (
-            <article className="wb-idle-dossier">
-              <span className="wb-reg-mark mark-tl">┌</span>
-              <span className="wb-reg-mark mark-tr">┐</span>
-              <span className="wb-reg-mark mark-bl">└</span>
-              <span className="wb-reg-mark mark-br">┘</span>
-
-              <div className="wb-idle-eyebrow">
-                <span>PLENARY SESSION IN PROGRESS · الجلسة العامة</span>
-              </div>
-
-              <h2 className="wb-idle-main-title">
-                البحث العلمي، معايير الجودة والابتكار الوطني
-              </h2>
-              <h3 className="wb-idle-sub-title">
-                Higher Education, Research Quality & Global Innovation
-              </h3>
-
-              <div className="wb-program-schedule">
-                <div className="wb-schedule-item is-current">
-                  <span className="wb-item-time">09:30</span>
-                  <div className="wb-item-body">
-                    <strong>Opening Keynote: Strategy for Academic Excellence</strong>
-                    <small>Main Amphitheater · الجلسة الافتتاحية</small>
-                  </div>
-                  <span className="wb-item-badge">IN SESSION</span>
-                </div>
-
-                <div className="wb-schedule-item">
-                  <span className="wb-item-time">11:15</span>
-                  <div className="wb-item-body">
-                    <strong>Panel: Engaging the Algerian Scientific Diaspora</strong>
-                    <small>Conference Hall B · منصة الشراكة الدولية</small>
-                  </div>
-                  <span className="wb-item-badge standby">UP NEXT</span>
-                </div>
-
-                <div className="wb-schedule-item">
-                  <span className="wb-item-time">14:00</span>
-                  <div className="wb-item-body">
-                    <strong>Workshops: Tech Transfer, Patents & DeepTech</strong>
-                    <small>Innovation Pavilions 1 & 2</small>
-                  </div>
-                  <span className="wb-item-badge standby">SCHEDULED</span>
-                </div>
-              </div>
-
-              <div className="wb-venue-bar">
-                <MapPin size={16} className="text-gold" />
-                <span>Palais de la Culture Moufdi Zakaria · Plateau des Annassers, Algiers</span>
-              </div>
-            </article>
-          )}
-        </section>
-
-        {/* Right: Auditorium Telemetry & Traffic Radar */}
-        <aside className="wb-telemetry-column">
-          {/* Block 1: "By The Numbers" Hall Occupancy */}
-          <div className="wb-telemetry-card">
-            <div className="wb-card-eyebrow">
-              <span>AUDITORIUM CAPACITY</span>
-              <Activity size={16} className="text-green" />
+      {/* Main Single Centered Hero Stage (Clean, Monumental, Original) */}
+      <main className="wb-hero-stage">
+        {activeArrival ? (
+          <article className="wb-arrival-monument" key={activeArrival.id}>
+            {/* Elegant Accent Header */}
+            <div className="wb-arrival-tagline">
+              <span className="wb-gold-spark">✦</span>
+              <span className="wb-arrival-badge-text">DELEGATE ARRIVAL · بطاقة وصول معتمدة</span>
             </div>
 
-            <div className="wb-big-number-row">
-              <span className="wb-big-stat">{occupancyPercent}%</span>
-              <div className="wb-number-context">
-                <strong>{totalCheckedIn} / {totalAccepted}</strong>
-                <small>CONFIRMED SEATS TAKEN</small>
+            <div className="wb-salute-bilingual">
+              <h2 className="wb-salute-ar">أهلاً وسهلاً بكم في الجلسة الافتتاحية</h2>
+              <p className="wb-salute-en">Welcome to the Annual Plenary Session</p>
+            </div>
+
+            {/* Monumental Attendee Name */}
+            <h1 className="wb-attendee-name">
+              {formatDisplayName(activeArrival.name)}
+            </h1>
+
+            {/* Organization / Academic Affiliation */}
+            {activeArrival.organization && (
+              <div className="wb-affiliation-line">
+                <Building size={19} className="text-gold" />
+                <span>{activeArrival.organization}</span>
+              </div>
+            )}
+
+            {/* Clean Minimalist Boarding Metadata (No heavy boxes) */}
+            <div className="wb-meta-strip">
+              <div className="wb-meta-item">
+                <span className="wb-meta-key">ACCESS GATE</span>
+                <strong className="wb-meta-val text-gold">
+                  GATE {activeArrival.stationName || "A"}
+                </strong>
+              </div>
+
+              <span className="wb-meta-sep">/</span>
+
+              <div className="wb-meta-item">
+                <span className="wb-meta-key">ENTRY TIME</span>
+                <strong className="wb-meta-val">
+                  {new Date(activeArrival.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit"
+                  })}
+                </strong>
+              </div>
+
+              <span className="wb-meta-sep">/</span>
+
+              <div className="wb-meta-item">
+                <span className="wb-meta-key">SECURITY STATUS</span>
+                <strong className="wb-meta-val text-emerald">
+                  <ShieldCheck size={16} /> VALIDATED BADGE
+                </strong>
               </div>
             </div>
+          </article>
+        ) : (
+          <article className="wb-idle-monument">
+            <span className="wb-summit-badge">NATIONAL SCIENTIFIC CONVENTION · ALGIERS</span>
 
-            {/* Segmented Architectural 20-Bar Meter */}
-            <div className="wb-segmented-meter" aria-label="Hall Occupancy Meter">
-              {Array.from({ length: totalSegments }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`wb-meter-segment ${i < activeSegments ? "is-filled" : ""}`}
-                />
-              ))}
-            </div>
+            <h1 className="wb-summit-arabic-title">
+              الملتقى الوطني لشبكة العلماء والخبراء الجزائريين
+            </h1>
 
-            <div className="wb-meter-legend">
-              <span>0% ENTRY</span>
-              <span>HALL OCCUPANCY: {totalCheckedIn} ATTENDING</span>
-              <span>100% FULL</span>
-            </div>
-          </div>
+            <h2 className="wb-summit-english-title">
+              INAS Annual Plenary & Science Summit 2026
+            </h2>
 
-          {/* Block 2: Live Gate Load Balancer */}
-          <div className="wb-telemetry-card">
-            <div className="wb-card-eyebrow">
-              <span>GATE TRAFFIC MATRIX · توزيع المداخل</span>
-              <span className="wb-live-pulse-dot" />
-            </div>
-
-            <div className="wb-gate-matrix-grid">
-              {(["A", "B", "C", "D"] as const).map((gate) => {
-                const count = gateBreakdown[gate] || 0;
-                const share = totalCheckedIn ? Math.round((count / totalCheckedIn) * 100) : 0;
-                return (
-                  <div className="wb-gate-cell" key={gate}>
-                    <div className="wb-gate-badge">GATE {gate}</div>
-                    <div className="wb-gate-data">
-                      <strong>{count}</strong>
-                      <small>{share}% share</small>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Block 3: Conference Dignitaries & Welcome Note */}
-          <div className="wb-telemetry-card wb-welcome-seal-card">
-            <div className="wb-seal-header">
-              <Calendar size={18} className="text-gold" />
-              <strong>WELCOME DELEGATES</strong>
-            </div>
-            <p className="wb-welcome-paragraph">
-              Welcome to all esteemed professors, researchers, academic partners, and international delegates joining us in Algiers. Please proceed to your allocated auditorium zone.
+            <p className="wb-summit-sub">
+              Higher Education, Research Quality & Global Innovation
             </p>
-            <div className="wb-arabic-welcome-note">
-              مرحباً بجميع العلماء، الأساتذة والباحثين المشاركين من داخل الوطن وخارجه.
-            </div>
-          </div>
-        </aside>
-      </div>
 
-      {/* Bottom Live Arrivals Stream: Split-Flap Ticker */}
-      <footer className="wb-ticker-bar">
-        <div className="wb-ticker-header">
-          <span className="wb-pulse-indicator" />
+            <div className="wb-venue-pill">
+              <MapPin size={16} className="text-gold" />
+              <span>Palais de la Culture Moufdi Zakaria · Algiers</span>
+            </div>
+
+            {/* Clean Live Gate Throughput Ribbon (Integrated subtly) */}
+            <div className="wb-gate-summary-row">
+              <span className="wb-gate-summary-title">LIVE GATE RECEPTION:</span>
+              {Object.keys(gateBreakdown).length > 0 ? (
+                Object.entries(gateBreakdown).map(([gate, count]) => (
+                  <div className="wb-gate-summary-pill" key={gate}>
+                    <span className="wb-gate-tag">GATE {gate}</span>
+                    <strong className="wb-gate-num">{count}</strong>
+                  </div>
+                ))
+              ) : (
+                <span className="wb-gate-summary-none">Gates Active & Standby</span>
+              )}
+            </div>
+          </article>
+        )}
+      </main>
+
+      {/* Bottom Fluid Arrivals Marquee */}
+      <footer className="wb-bottom-marquee">
+        <div className="wb-marquee-title">
+          <span className="wb-live-pulse-dot" />
           <span>RECENT ARRIVALS · سجل الوصول المباشر</span>
         </div>
 
-        <div className="wb-ticker-scroll">
-          {recent.slice(0, 8).map((record) => (
-            <div className="wb-ticker-plate" key={record.id}>
-              <span className="wb-plate-gate">GATE {record.stationName}</span>
-              <strong className="wb-plate-name">{formatDisplayName(record.participantName)}</strong>
-              <small className="wb-plate-time">
-                {new Date(record.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </small>
-            </div>
-          ))}
-          {recent.length === 0 && (
-            <div className="wb-ticker-idle">Gate check-in streams are active and synchronizing live...</div>
-          )}
+        <div className="wb-marquee-track">
+          <div className="wb-marquee-content">
+            {recent.length > 0 ? (
+              recent.slice(0, 15).map((record) => (
+                <div className="wb-arrival-chip" key={record.id}>
+                  <span className="wb-chip-gate">GATE {record.stationName || "A"}</span>
+                  <strong className="wb-chip-name">{formatDisplayName(record.participantName)}</strong>
+                  <time className="wb-chip-time">
+                    {new Date(record.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </time>
+                </div>
+              ))
+            ) : (
+              <span className="wb-marquee-empty">Awaiting incoming delegates at all gates...</span>
+            )}
+          </div>
         </div>
       </footer>
     </div>

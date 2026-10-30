@@ -20,6 +20,7 @@ import { demoParticipants, makeDemoSnapshot } from "../data/demo";
 import { demoTestTickets } from "../data/testTickets";
 import { calculateStats, EVENT_ID, normalizeText } from "./domain";
 import { auth, db, isFirebaseConfigured } from "./firebase";
+import { loadEntrances } from "./entrances";
 import type { CheckInRecord, ConfirmationStatus, EntranceName, EventRecord, EventSnapshot, InvitationAsset, ManualInviteInput, Participant, ScanResult, StaffSession } from "../types";
 
 export interface EventClient {
@@ -121,13 +122,19 @@ function participantFromInput(id: string, input: ManualInviteInput, ticketHash: 
 }
 
 function allEntrances(): EntranceName[] {
+  try {
+    const list = loadEntrances();
+    if (list && list.length > 0) return list.map((e) => e.name);
+  } catch {}
   return ["A", "B", "C", "D"];
 }
 
 function entranceEmail(stationName: string): string {
-  if (stationName === "A" || stationName === "C") return import.meta.env.VITE_ENTRANCE_A_EMAIL || "checkin-a@inas-dz.org";
-  if (stationName === "B" || stationName === "D") return import.meta.env.VITE_ENTRANCE_B_EMAIL || "checkin-b@inas-dz.org";
-  throw new Error("invalid-entrance");
+  const norm = stationName.toUpperCase();
+  if (norm === "B" || norm === "D" || norm.endsWith("B") || norm.endsWith("2") || norm.endsWith("4")) {
+    return import.meta.env.VITE_ENTRANCE_B_EMAIL || "checkin-b@inas-dz.org";
+  }
+  return import.meta.env.VITE_ENTRANCE_A_EMAIL || "checkin-a@inas-dz.org";
 }
 
 class FirebaseEventClient implements EventClient {

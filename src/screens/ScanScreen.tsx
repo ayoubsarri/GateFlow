@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Flashlight, LoaderCircle, QrCode, Radio, RefreshCw, RotateCcw, ScanLine, Video, VideoOff, X, Zap } from "lucide-react";
+import { Check, CircleAlert, Flashlight, LoaderCircle, QrCode, Radio, RefreshCw, RotateCcw, ScanLine, Video, VideoOff, X, Zap, ShieldCheck, MapPin } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { MeshPairingModal } from "../components/MeshPairingModal";
@@ -49,6 +49,9 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
   const [manualCode, setManualCode] = useState("");
   const [conflictNotice, setConflictNotice] = useState<{ name: string; station?: string } | null>(null);
 
+  // Station info
+  const currentStation = localStorage.getItem("inas-station") || "A";
+
   // Speed-Gate & Continuous Burst Mode State
   const [speedGate, setSpeedGate] = useState<boolean>(() => {
     return localStorage.getItem("inas-speed-gate") !== "false";
@@ -86,11 +89,10 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
 
   useEffect(() => () => void stop(), [stop]);
 
-  // Subscribe to P2P Mesh peer count & incoming check-in notifications
+  // Subscribe to P2P Mesh peer count
   useEffect(() => {
     const unsubPeers = p2pMesh.onPeerCountChange(setPeerCount);
     const unsubMesh = p2pMesh.subscribe((event) => {
-      // If another station checked someone in, record notice
       console.log(`[GateFlow Mesh] Inbound check-in received from Station ${event.stationName}:`, event.participantName);
     });
     return () => {
@@ -206,7 +208,7 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
         osc.stop(now + 0.22);
       }
     } catch {
-      // Audio blocked or unsupported
+      // Audio blocked
     }
   };
 
@@ -232,7 +234,7 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
     setPending({ payload, requestId });
     setResult(null);
 
-    // 1. Check Local P2P Mesh Invariant Cache First (Detects duplicate scan at other offline gates)
+    // 1. Check Local P2P Mesh Invariant Cache
     const meshMatch = p2pMesh.queryMeshCheckIn(payload);
     if (meshMatch) {
       const res: ScanResult = {
@@ -260,53 +262,34 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
         stationName: localStorage.getItem("inas-station") || "A"
       });
       setResult({ status: "offline" });
-      setBurstCount((c) => c + 1);
-      setProcessing(false);
       playChime("success");
-      autoDismissTimerRef.current = window.setTimeout(dismissResult, speedGate ? 1200 : 2800);
+      setProcessing(false);
+      autoDismissTimerRef.current = window.setTimeout(dismissResult, speedGate ? 1400 : 2500);
       return;
     }
 
-    // 3. Online Check-in via Client
+    // 3. Online Client Processing
     try {
       const response = await client.checkIn(payload, requestId);
       setResult(response);
-      setPending(response.status === "offline" ? { payload, requestId } : null);
-
-      if (response.status === "offline") {
-        enqueueOfflineScan("qr", payload, requestId);
-      }
-
-      // Broadcast check-in across P2P Mesh to all paired gates
       if (response.status === "success") {
+        setBurstCount((c) => c + 1);
+        setUndoSeconds(10);
         p2pMesh.broadcastCheckIn({
           payload,
           requestId,
-          participantId: response.participantId,
+          participantId: response.checkInId,
           participantName: response.participantName,
-          stationName: response.stationName || localStorage.getItem("inas-station") || "A"
+          stationName: response.stationName || "A"
         });
-        setBurstCount((c) => c + 1);
-        setUndoSeconds(10);
       }
-
       playChime(response.status);
-
-      // Auto-dismiss HUD so staff NEVER has to tap "Scan Another" in burst mode
-      const dismissDuration = speedGate ? (response.status === "success" ? 1300 : 2000) : 2800;
-      autoDismissTimerRef.current = window.setTimeout(dismissResult, dismissDuration);
+      autoDismissTimerRef.current = window.setTimeout(dismissResult, speedGate ? 1400 : 3000);
     } catch (error) {
       if (isNetworkFailure(error)) {
         enqueueOfflineScan("qr", payload, requestId);
-        p2pMesh.broadcastCheckIn({
-          payload,
-          requestId,
-          stationName: localStorage.getItem("inas-station") || "A"
-        });
         setResult({ status: "offline" });
-        setBurstCount((c) => c + 1);
         playChime("success");
-        autoDismissTimerRef.current = window.setTimeout(dismissResult, speedGate ? 1200 : 2800);
       } else {
         setResult({ status: "error", message: error instanceof Error ? error.message : undefined });
         playChime("error");
@@ -316,40 +299,16 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
     }
   }, [client, dismissResult, isAr, speedGate]);
 
-  const processManualCode = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const code = manualCode.trim();
+  const processManualCode = async (eventValue: FormEvent) => {
+    eventValue.preventDefault();
+    const code = manualCode.trim().toUpperCase();
     if (!code) return;
+
     clearAutoDismiss();
     setProcessing(true);
     setResult(null);
     const requestId = createRequestId();
-
-    // Check P2P Mesh
-    const meshMatch = p2pMesh.queryMeshCheckIn(code);
-    if (meshMatch) {
-      setResult({
-        status: "already",
-        participantName: meshMatch.participantName,
-        stationName: meshMatch.stationName,
-        message: isAr ? `مسجل مسبقاً في المدخل ${meshMatch.stationName} (P2P)` : `Checked in at Station ${meshMatch.stationName} (P2P)`
-      });
-      playChime("already");
-      setManualCode("");
-      setProcessing(false);
-      autoDismissTimerRef.current = window.setTimeout(dismissResult, 2500);
-      return;
-    }
-
-    if (!navigator.onLine) {
-      enqueueOfflineScan("manual", code, requestId);
-      setResult({ status: "offline" });
-      setManualCode("");
-      setBurstCount((c) => c + 1);
-      setProcessing(false);
-      playChime("success");
-      return;
-    }
+    setPending({ payload: code, requestId });
 
     try {
       const matches = await client.lookup(code);
@@ -427,134 +386,236 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
     }
   };
 
-  const ResultIcon = result?.status === "success" ? Check
-    : result?.status === "already" || result?.status === "offline" ? RefreshCw
-      : result?.status === "invalid" || result?.status === "revoked" ? X
-        : CircleAlert;
+  const ResultIcon =
+    result?.status === "success"
+      ? Check
+      : result?.status === "already" || result?.status === "offline"
+      ? RefreshCw
+      : result?.status === "invalid" || result?.status === "revoked"
+      ? X
+      : CircleAlert;
 
   const resultTitle = result
-    ? result.status === "success" ? t.success
-      : result.status === "already" ? t.already
-        : result.status === "invalid" ? t.invalid
-          : result.status === "revoked" ? t.revoked
-            : result.status === "offline" ? t.offline
-              : result.status === "closed" ? (status === "draft" ? t.draft : t.closed)
-                : t.failed
+    ? result.status === "success"
+      ? t.success
+      : result.status === "already"
+      ? t.already
+      : result.status === "invalid"
+      ? t.invalid
+      : result.status === "revoked"
+      ? t.revoked
+      : result.status === "offline"
+      ? t.offline
+      : result.status === "closed"
+      ? status === "draft"
+        ? t.draft
+        : t.closed
+      : t.failed
     : "";
 
   return (
-    <section className="scan-screen">
-      {/* Top Operations Strip: Speed-Gate Burst Mode & P2P Local Mesh Status */}
-      <div className="scan-operations-strip">
+    <section className="scan-screen-v2">
+      {/* Top Operations & Gate Context Strip */}
+      <div className="gate-ops-bar">
+        {/* Current Gate Badge */}
+        <div className="gate-ident-chip">
+          <MapPin size={15} />
+          <strong>{isAr ? `المدخل ${currentStation}` : `Gate ${currentStation}`}</strong>
+        </div>
+
+        {/* Speed-Gate Burst Mode Toggle */}
         <button
-          className={`speed-gate-toggle ${speedGate ? "is-active" : ""}`}
+          className={`speed-gate-toggle-v2 ${speedGate ? "active" : ""}`}
           onClick={toggleSpeedGate}
-          title={isAr ? "تبديل وضع السرعة القصوى للمسح المتتالي" : "Toggle Continuous Speed-Gate Burst Mode"}
+          title={isAr ? "وضع السرعة الفائقة للمسح المتتالي" : "Toggle Continuous Burst Speed Mode"}
         >
-          <Zap size={16} />
-          <strong>{isAr ? "وضع السرعة" : "Speed-Gate"}</strong>
-          <span className="speed-gate-badge">{speedGate ? (isAr ? "مفعّل" : "ON") : (isAr ? "معطل" : "OFF")}</span>
+          <Zap size={15} />
+          <span>{isAr ? "وضع السرعة" : "Speed"}</span>
+          <b className="mode-tag">{speedGate ? (isAr ? "مفعّل" : "ON") : (isAr ? "متوقف" : "OFF")}</b>
         </button>
 
-        {speedGate && (
-          <div className="burst-metric-chip" title="Burst Throughput">
-            <span>{burstCount} {isAr ? "مسح" : "scans"}</span>
-            <small>· {burstVelocity}/min</small>
-            {burstCount > 0 && (
-              <button className="burst-reset-button" onClick={resetBurstSession} title="Reset counter">
-                <RotateCcw size={12} />
-              </button>
-            )}
+        {speedGate && burstCount > 0 && (
+          <div className="burst-badge-v2" title="Burst Throughput">
+            <span>{burstCount} {isAr ? "دخول" : "scans"}</span>
+            <small>· {burstVelocity}/m</small>
+            <button className="burst-reset-icon" onClick={resetBurstSession} title="Reset Counter">
+              <RotateCcw size={11} />
+            </button>
           </div>
         )}
 
+        {/* P2P Mesh Gate Sync Indicator */}
         <button
-          className={`mesh-pill-button ${peerCount > 0 ? "has-peers" : ""}`}
+          className={`p2p-mesh-pill ${peerCount > 0 ? "connected" : ""}`}
           onClick={() => setShowMeshModal(true)}
-          title={isAr ? "ربط شبكة المداخل P2P للمزامنة عند انقطاع الإنترنت" : "P2P Gate Mesh Sync Status"}
+          title={isAr ? "حالة الربط بين المداخل عند انقطاع الإنترنت" : "P2P Gate Mesh Sync Status"}
         >
-          <Radio size={15} />
-          <span>{peerCount > 0 ? `${peerCount} ${isAr ? "مداخل متصلة" : "Gates"}` : (isAr ? "شبكة P2P" : "P2P Mesh")}</span>
+          <Radio size={14} />
+          <span>{peerCount > 0 ? `${peerCount} ${isAr ? "مداخل" : "Gates"}` : (isAr ? "P2P شبكة" : "Mesh")}</span>
         </button>
       </div>
 
       {conflictNotice && (
-        <div className="inline-warning scan-warning" style={{ background: "#fff3cd", color: "#856404", borderColor: "#ffeeba" }}>
-          <CircleAlert size={19} />
+        <div className="inline-warning scan-warning">
+          <CircleAlert size={18} />
           <span>
             {language === "ar"
               ? `تنبيه: تم تسجيل دخول مكرر متزامن لـ (${conflictNotice.name}) في محطة ${conflictNotice.station || "أخرى"}.`
               : `Alert: Duplicate sync check-in detected for (${conflictNotice.name}) at Station ${conflictNotice.station || "other"}.`}
           </span>
-          <button style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontWeight: "bold" }} onClick={() => setConflictNotice(null)}>×</button>
+          <button onClick={() => setConflictNotice(null)}>×</button>
         </div>
       )}
 
-      <div className={`scanner-card scanner-card--single ${scanning ? "is-scanning" : ""} ${result ? `scanner-card--flash-${result.status}` : ""}`}>
-        <video ref={videoRef} className="scanner-video" muted playsInline aria-label={t.scan} />
-        <div className="scanner-ambient" />
+      {/* Main Viewfinder Card */}
+      <div className={`camera-viewfinder-card ${scanning ? "is-scanning" : ""} ${result ? `flash-${result.status}` : ""}`}>
+        <video ref={videoRef} className="camera-feed-video" muted playsInline aria-label={t.scan} />
+        <div className="camera-feed-ambient" />
 
-        <div className="scanner-frame" aria-hidden="true" style={{ opacity: result ? 0.35 : 1 }}>
-          <i className="corner corner--one" /><i className="corner corner--two" /><i className="corner corner--three" /><i className="corner corner--four" />
-          {scanning && !result && <span className="scanner-line" />}
-          {!scanning && !result && <div className="scanner-placeholder"><QrCode size={64} /><strong>{t.scan}</strong></div>}
+        {/* Reticle / Laser sweep */}
+        <div className="viewfinder-reticle" aria-hidden="true" style={{ opacity: result ? 0.25 : 1 }}>
+          <span className="reticle-corner corner-tl" />
+          <span className="reticle-corner corner-tr" />
+          <span className="reticle-corner corner-bl" />
+          <span className="reticle-corner corner-br" />
+          {scanning && !result && <span className="laser-sweep-line" />}
+          {!scanning && !result && (
+            <div className="viewfinder-idle-state">
+              <div className="viewfinder-qr-icon">
+                <QrCode size={56} />
+              </div>
+              <strong>{isAr ? "الكاميرا جاهزة للمسح" : "Camera Ready to Scan"}</strong>
+              <small>{isAr ? "اضغط على زر تشغيل الكاميرا للبدء" : "Tap Start Camera to begin scanning badges"}</small>
+            </div>
+          )}
         </div>
 
-        <div className="scanner-controls">
-          <button className="camera-button" onClick={scanning ? stop : start} disabled={processing || status !== "live"}>
-            {scanning ? <VideoOff size={20} /> : <Video size={20} />}
+        {/* Floating Controls Bar over camera */}
+        <div className="viewfinder-floating-actions">
+          <button
+            className={`action-btn-camera ${scanning ? "is-active" : ""}`}
+            onClick={scanning ? stop : start}
+            disabled={processing || status !== "live"}
+          >
+            {scanning ? <VideoOff size={18} /> : <Video size={18} />}
             <span>{scanning ? t.stopCamera : t.startCamera}</span>
           </button>
+
           {torchAvailable && scanning && (
-            <button className={`round-control ${torchOn ? "active" : ""}`} onClick={async () => { const next = await toggleScannerTorch(); setTorchOn(next); }} aria-label={t.torch}>
-              <Flashlight size={20} />
+            <button
+              className={`action-btn-torch ${torchOn ? "is-on" : ""}`}
+              onClick={async () => {
+                const next = await toggleScannerTorch();
+                setTorchOn(next);
+              }}
+              aria-label={t.torch}
+              title={t.torch}
+            >
+              <Flashlight size={18} />
             </button>
           )}
+
           {client.demo && !scanning && (
-            <button className="round-control demo-icon-button" onClick={() => void processPayload("DEMO", createRequestId())} disabled={processing} aria-label={t.demoScan} title={t.demoScan}>
-              <ScanLine size={20} />
+            <button
+              className="action-btn-demo"
+              onClick={() => void processPayload("DEMO", createRequestId())}
+              disabled={processing}
+              title={t.demoScan}
+            >
+              <ScanLine size={18} />
+              <span>{t.demoScan}</span>
             </button>
           )}
         </div>
 
-        {!result && (
-          <form className="manual-code-panel" onSubmit={(event) => void processManualCode(event)}>
-            <input
-              dir="ltr"
-              value={manualCode}
-              onChange={(event) => setManualCode(event.target.value.toUpperCase())}
-              placeholder={language === "ar" ? "الرمز اليدوي" : "Manual code"}
-              aria-label={language === "ar" ? "الرمز اليدوي" : "Manual code"}
-              disabled={processing || status !== "live"}
-            />
-            <button disabled={processing || status !== "live" || !manualCode.trim()}>{language === "ar" ? "دخول" : "Check"}</button>
-          </form>
+        {/* Processing Spinner */}
+        {processing && (
+          <div className="scan-processing-hud">
+            <LoaderCircle className="spin" size={32} />
+            <span>{isAr ? "جارٍ التحقق..." : "Validating badge..."}</span>
+          </div>
         )}
-
-        {result && (
-          <article className={`scan-result-overlay scan-result--${result.status}`}>
-            <div className="scan-result__icon"><ResultIcon size={36} /></div>
-            <h1>{resultTitle}</h1>
-            {result.participantName && <strong className="participant-name">{result.participantName}</strong>}
-            {result.checkedInAt && <span className="result-time">{formatEventTime(result.checkedInAt, language)}</span>}
-            {result.message && <p className="result-message" style={{ fontSize: "0.85rem", opacity: 0.9, marginTop: "4px" }}>{result.message}</p>}
-            
-            <div className="result-actions">
-              {result.status === "success" && undoSeconds > 0 && (
-                <button className="secondary-button" onClick={undo} disabled={processing}><RotateCcw size={18} />{t.undo} · {undoSeconds}</button>
-              )}
-              {(result.status === "offline" || result.status === "error") && pending && (
-                <button className="primary-button" onClick={() => void processPayload(pending.payload, pending.requestId)} disabled={processing || !online}><RefreshCw size={18} />{t.retry}</button>
-              )}
-              <button className="camera-button" onClick={dismissResult}><QrCode size={18} />{t.scanAnother}</button>
-            </div>
-          </article>
-        )}
-
-        {processing && <div className="processing-overlay"><LoaderCircle className="spin" size={32} /></div>}
       </div>
 
-      {cameraError && <div className="inline-warning scan-warning"><CircleAlert size={19} /><span>{t.cameraDenied}</span></div>}
+      {cameraError && (
+        <div className="inline-warning scan-warning">
+          <CircleAlert size={18} />
+          <span>{t.cameraDenied}</span>
+        </div>
+      )}
+
+      {/* Instant Scan Result HUD Card */}
+      {result && (
+        <article className={`scan-result-card result-${result.status}`} role="alert">
+          <div className="result-card-header">
+            <div className="result-badge-icon">
+              <ResultIcon size={24} />
+            </div>
+            <div className="result-badge-title">
+              <h2>{resultTitle}</h2>
+              {result.checkedInAt && (
+                <time>{formatEventTime(result.checkedInAt, language)}</time>
+              )}
+            </div>
+            {result.stationName && (
+              <span className="result-gate-tag">GATE {result.stationName}</span>
+            )}
+          </div>
+
+          {result.participantName && (
+            <div className="result-attendee-name">
+              <strong>{result.participantName}</strong>
+            </div>
+          )}
+
+          {result.message && <p className="result-card-msg">{result.message}</p>}
+
+          <div className="result-card-buttons">
+            {result.status === "success" && undoSeconds > 0 && (
+              <button className="undo-action-btn" onClick={undo} disabled={processing}>
+                <RotateCcw size={16} />
+                <span>{t.undo} ({undoSeconds}s)</span>
+              </button>
+            )}
+            {(result.status === "offline" || result.status === "error") && pending && (
+              <button
+                className="retry-action-btn"
+                onClick={() => void processPayload(pending.payload, pending.requestId)}
+                disabled={processing || !online}
+              >
+                <RefreshCw size={16} />
+                <span>{t.retry}</span>
+              </button>
+            )}
+            <button className="dismiss-action-btn" onClick={dismissResult}>
+              <QrCode size={16} />
+              <span>{t.scanAnother}</span>
+            </button>
+          </div>
+        </article>
+      )}
+
+      {/* Manual Code Input Bar (Clean, Separated Dock) */}
+      <form className="manual-entry-dock" onSubmit={(event) => void processManualCode(event)}>
+        <div className="manual-input-wrapper">
+          <input
+            dir="ltr"
+            value={manualCode}
+            onChange={(event) => setManualCode(event.target.value.toUpperCase())}
+            placeholder={language === "ar" ? "إدخال يدوي (مثال: ABCD-1234)" : "Manual code (e.g. ABCD-1234)"}
+            aria-label={language === "ar" ? "الرمز اليدوي" : "Manual code"}
+            disabled={processing || status !== "live"}
+            maxLength={16}
+          />
+          <button
+            type="submit"
+            className="manual-submit-btn"
+            disabled={processing || status !== "live" || !manualCode.trim()}
+          >
+            <span>{language === "ar" ? "تسجيل" : "Check In"}</span>
+          </button>
+        </div>
+      </form>
 
       {/* P2P Local Mesh Pairing Modal */}
       {showMeshModal && (

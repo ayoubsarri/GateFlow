@@ -1,4 +1,4 @@
-import { Activity, ArrowDownToLine, CheckCircle2, ClipboardCheck, Clock3, Flame, Gauge, MailCheck, MapPinned, TrendingUp, UserRoundX, UsersRound, Zap } from "lucide-react";
+import { Activity, ArrowDownToLine, CheckCircle2, ClipboardCheck, Clock3, Gauge, TrendingUp, UserRoundX, UsersRound, Zap, DoorOpen } from "lucide-react";
 import type { CSSProperties } from "react";
 import { copy } from "../lib/i18n";
 import { formatEventTime } from "../lib/domain";
@@ -21,7 +21,18 @@ function downloadCsv(participants: Participant[]) {
     }
     return `"${str.replace(/"/g, '""')}"`;
   };
-  const rows = participants.map((participant) => [participant.name, participant.email, participant.organization, participant.status, participant.inviteStatus, participant.confirmationStatus, participant.confirmedAt, participant.checkedInAt, participant.stationName, participant.checkInMethod].map(escape).join(","));
+  const rows = participants.map((participant) => [
+    participant.name,
+    participant.email,
+    participant.organization,
+    participant.status,
+    participant.inviteStatus,
+    participant.confirmationStatus,
+    participant.confirmedAt,
+    participant.checkedInAt,
+    participant.stationName,
+    participant.checkInMethod
+  ].map(escape).join(","));
   const blob = new Blob(["\uFEFF", [header.join(","), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -36,7 +47,6 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
   const isAr = language === "ar";
   const attendanceRate = stats.accepted ? Math.round((stats.checkedIn / stats.accepted) * 100) : 0;
   const maxHourly = Math.max(...stats.hourly.map((item) => item.count), 1);
-  const sentRate = stats.accepted ? Math.round((stats.invitationSent / stats.accepted) * 100) : 0;
   const hourly = stats.hourly.length ? stats.hourly : [
     { hour: "08:00", count: 0 }, { hour: "09:00", count: 0 }, { hour: "10:00", count: 0 }, { hour: "11:00", count: 0 }
   ];
@@ -74,13 +84,25 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
   }
   const maxFiveMin = Math.max(...fiveMinBuckets.map((b) => b.count), 1);
 
-  // 3. Gate Distribution Heatmap
-  const stationsData = stats.stations.length ? stats.stations : [
-    { name: "A", count: 0 },
-    { name: "B", count: 0 },
-    { name: "C", count: 0 },
-    { name: "D", count: 0 }
-  ];
+  // 3. Dynamic Gate Distribution (supports all configured gates + actual checkin stations)
+  const stationCountsMap = new Map<string, number>();
+  // Pre-seed from stats.stations
+  if (stats.stations && stats.stations.length > 0) {
+    stats.stations.forEach((s) => stationCountsMap.set(s.name, s.count));
+  } else {
+    ["A", "B", "C", "D"].forEach((name) => stationCountsMap.set(name, 0));
+  }
+  // Also count directly from participants to ensure newly added gates show immediately
+  participants.forEach((p) => {
+    if (p.checkedInAt && p.stationName) {
+      stationCountsMap.set(p.stationName, (stationCountsMap.get(p.stationName) || 0) + 1);
+    }
+  });
+
+  const stationsData = Array.from(stationCountsMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const maxStationCount = Math.max(...stationsData.map((s) => s.count), 1);
 
   const metrics = [
@@ -93,11 +115,12 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
 
   return (
     <section className="dashboard-page">
+      {/* Top Header */}
       <div className="page-heading">
         <div>
           <h1>{t.dashboard}</h1>
-          <p className="sub-heading" style={{ fontSize: "0.88rem", color: "#64748b", margin: "2px 0 0" }}>
-            {isAr ? "تحليلات التدفق وحمل المداخل المباشرة" : "Live Gate Flow & Capacity Analytics"}
+          <p className="sub-heading">
+            {isAr ? "لوحة المتابعة والتحليلات اللحظية للحدث" : "Live Event Operations & Analytics Dashboard"}
           </p>
         </div>
         <button className="secondary-button" onClick={() => downloadCsv(participants)}>
@@ -106,7 +129,7 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
         </button>
       </div>
 
-      {/* Main High-Level Summary Metrics */}
+      {/* Row 1: High-Level Pulse Summary Cards */}
       <div className="metrics-grid">
         {metrics.map(({ label, value, icon: Icon, tone }) => (
           <article className={`metric-card metric-card--${tone}`} key={label}>
@@ -117,14 +140,14 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
         ))}
       </div>
 
-      {/* Feature Section: Real-Time Arrival Velocity & Gate Heatmap */}
+      {/* Row 2: Live Velocity & Gate Traffic Distribution */}
       <div className="velocity-heatmap-row">
-        {/* Real-time Arrival Velocity Gauge */}
+        {/* Panel A: Arrival Velocity & Cadence */}
         <article className="panel velocity-panel">
           <div className="panel-heading">
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className="panel-title-group">
               <Gauge size={20} className="text-teal" />
-              <h2>{isAr ? "سرعة التدفق المباشر" : "Arrival Velocity"}</h2>
+              <h2>{isAr ? "سرعة تدفق الوافدين" : "Arrival Velocity"}</h2>
             </div>
             <span className="live-pulse-badge">
               <span className="pulse-dot" />
@@ -137,15 +160,15 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
               <span className="velocity-label">{isAr ? "التدفق الحالي" : "Current Rate"}</span>
               <div className="velocity-number">
                 <strong>{currentVelocityPerMin}</strong>
-                <small>{isAr ? "وافد/دقيقة" : "guests/min"}</small>
+                <small>{isAr ? "وافد / دقيقة" : "guests / min"}</small>
               </div>
             </div>
 
             <div className="velocity-stat">
-              <span className="velocity-label">{isAr ? "أعلى ذروة" : "Peak Recorded"}</span>
+              <span className="velocity-label">{isAr ? "أعلى ذروة مسجلة" : "Peak Recorded"}</span>
               <div className="velocity-number text-gold">
                 <strong>{peakVelocityPerMin}</strong>
-                <small>{isAr ? "وافد/دقيقة" : "guests/min"}</small>
+                <small>{isAr ? "وافد / دقيقة" : "guests / min"}</small>
               </div>
             </div>
 
@@ -162,7 +185,7 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
           <div className="micro-chart-container">
             <div className="micro-chart-header">
               <Activity size={14} />
-              <span>{isAr ? "توزيع كل 5 دقائق (آخر نصف ساعة)" : "5-Min Interval Rolling Cadence"}</span>
+              <span>{isAr ? "التدفق كل 5 دقائق (آخر نصف ساعة)" : "5-Min Rolling Cadence"}</span>
             </div>
             <div className="micro-bars">
               {fiveMinBuckets.map((bucket) => {
@@ -181,21 +204,24 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
           </div>
         </article>
 
-        {/* Gate Distribution Heatmap & Load Balancer */}
+        {/* Panel B: Gate Traffic Distribution (Note: '(Gate Heatmap)' label removed per user specification) */}
         <article className="panel heatmap-panel">
           <div className="panel-heading">
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Flame size={20} className="text-gold" />
-              <h2>{isAr ? "خريطة حمل المداخل (Gate Heatmap)" : "Gate Heatmap & Load Balancer"}</h2>
+            <div className="panel-title-group">
+              <DoorOpen size={20} className="text-gold" />
+              <h2>{isAr ? "توزيع حركة المداخل" : "Gate Traffic Distribution"}</h2>
             </div>
-            <Zap size={18} className="text-teal" />
+            <span className="panel-badge-subtle">
+              <Zap size={14} className="text-teal" />
+              {isAr ? "موازنة الأحمال" : "Load Balance"}
+            </span>
           </div>
 
           <div className="heatmap-list">
             {stationsData.map((station) => {
               const share = stats.checkedIn ? Math.round((station.count / stats.checkedIn) * 100) : 0;
               const isBottleneck = share > 45 && stats.checkedIn > 20;
-              const isBalanced = share >= 20 && share <= 45;
+              const isBalanced = share >= 15 && share <= 45;
 
               return (
                 <div className={`heatmap-station-row ${isBottleneck ? "is-congested" : ""}`} key={station.name}>
@@ -203,11 +229,11 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
                     <div className="station-badge-circle">{station.name}</div>
                     <div className="station-meta">
                       <strong>{isAr ? `المدخل ${station.name}` : `Gate ${station.name}`}</strong>
-                      <span className="station-share">{share}% {isAr ? "من الحركة" : "of traffic"}</span>
+                      <span className="station-share">{share}% {isAr ? "من إجمالي الدخول" : "of total entries"}</span>
                     </div>
                     <div className="station-count-pill">
                       <b>{station.count}</b>
-                      <small>{isAr ? "دخول" : "checked"}</small>
+                      <small>{isAr ? "وافد" : "guests"}</small>
                     </div>
                   </div>
 
@@ -221,11 +247,11 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
                   <div className="heatmap-status-indicator">
                     {isBottleneck ? (
                       <span className="status-tag tag-warning">
-                        ⚠️ {isAr ? "ضغط عالي — وجّه الوافدين لمداخل أخرى" : "Heavy Load — Re-route arriving guests"}
+                        ⚠️ {isAr ? "ضغط عالي — وجّه الوافدين لمداخل أخرى" : "High Volume — Distribute to other gates"}
                       </span>
                     ) : (
                       <span className="status-tag tag-normal">
-                        ✓ {isAr ? "تدفق متوازن" : "Smooth Flow"}
+                        ✓ {isAr ? "تدفق سلس ومستقر" : "Smooth Flow"}
                       </span>
                     )}
                   </div>
@@ -236,56 +262,54 @@ export function DashboardScreen({ language, stats, recent, participants }: Dashb
         </article>
       </div>
 
-      {/* Hourly Trend & Campaign Panels */}
-      <div className="dashboard-grid">
+      {/* Row 3: Hourly Trends & Recent Arrivals Stream */}
+      <div className="dashboard-grid-organized">
+        {/* Hourly Trend Panel */}
         <article className="panel arrival-panel">
-          <div className="panel-heading"><h2>{t.arrivals}</h2><Clock3 size={21} /></div>
+          <div className="panel-heading">
+            <div className="panel-title-group">
+              <Clock3 size={20} />
+              <h2>{t.arrivals}</h2>
+            </div>
+            <span className="panel-sub-label">{isAr ? "التوزيع بالساعات" : "Hourly Breakdown"}</span>
+          </div>
           <div className="bar-chart" aria-label={t.arrivals}>
             {hourly.map((item) => (
               <div className="bar-column" key={item.hour}>
                 <span className="bar-value">{item.count}</span>
-                <div className="bar-track"><div className="bar-fill" style={{ height: `${Math.max((item.count / maxHourly) * 100, item.count ? 12 : 2)}%` }} /></div>
+                <div className="bar-track">
+                  <div className="bar-fill" style={{ height: `${Math.max((item.count / maxHourly) * 100, item.count ? 12 : 2)}%` }} />
+                </div>
                 <small>{item.hour}</small>
               </div>
             ))}
           </div>
         </article>
 
-        <article className="panel invitation-panel">
-          <div className="panel-heading"><h2>{t.invitations}</h2><MailCheck size={21} /></div>
-          <div className="donut" style={{ "--progress": `${sentRate * 3.6}deg` } as CSSProperties}>
-            <div><strong>{sentRate}%</strong></div>
-          </div>
-          <div className="campaign-legend">
-            <span><i className="sent" />{t.invitations}<strong>{stats.invitationSent}</strong></span>
-            <span><i className="pending" />{t.waiting}<strong>{stats.invitationPending}</strong></span>
-            <span><i className="failed" />{t.failed}<strong>{stats.invitationFailed + stats.invitationUnknown}</strong></span>
-          </div>
-        </article>
-
-        <article className="panel stations-panel">
-          <div className="panel-heading"><h2>{t.stations}</h2><MapPinned size={21} /></div>
-          <div className="station-list">
-            {(stats.stations.length ? stats.stations : [{ name: "—", count: 0 }]).map((station, index) => (
-              <div className="station-item" key={station.name}>
-                <span className="station-rank">{String(index + 1).padStart(2, "0")}</span>
-                <div><strong>{station.name}</strong><div className="station-track"><span style={{ width: `${stats.checkedIn ? (station.count / stats.checkedIn) * 100 : 0}%` }} /></div></div>
-                <b>{station.count}</b>
-              </div>
-            ))}
-          </div>
-        </article>
-
+        {/* Live Recent Check-in Feed */}
         <article className="panel recent-panel">
-          <div className="panel-heading"><h2>{t.recent}</h2><span className="pulse-dot" /></div>
+          <div className="panel-heading">
+            <div className="panel-title-group">
+              <span className="pulse-dot" />
+              <h2>{t.recent}</h2>
+            </div>
+            <span className="panel-sub-label">{isAr ? "آخر عمليات الدخول" : "Live Stream"}</span>
+          </div>
           <div className="recent-list">
-            {recent.length ? recent.slice(0, 6).map((record) => (
-              <div className="recent-item" key={record.id}>
-                <div className="recent-check"><CheckCircle2 size={18} /></div>
-                <div><strong>{record.participantName}</strong><span>{record.stationName} · {record.method === "qr" ? t.qr : t.manual}</span></div>
-                <time>{formatEventTime(record.checkedInAt, language)}</time>
-              </div>
-            )) : <div className="empty-mini">{language === "ar" ? "لا توجد عمليات دخول بعد." : "No check-ins yet."}</div>}
+            {recent.length ? (
+              recent.slice(0, 6).map((record) => (
+                <div className="recent-item" key={record.id}>
+                  <div className="recent-check"><CheckCircle2 size={18} /></div>
+                  <div className="recent-meta">
+                    <strong>{record.participantName}</strong>
+                    <span>{isAr ? `المدخل ${record.stationName}` : `Gate ${record.stationName}`} · {record.method === "qr" ? t.qr : t.manual}</span>
+                  </div>
+                  <time>{formatEventTime(record.checkedInAt, language)}</time>
+                </div>
+              ))
+            ) : (
+              <div className="empty-mini">{language === "ar" ? "لا توجد عمليات دخول بعد." : "No check-ins yet."}</div>
+            )}
           </div>
         </article>
       </div>

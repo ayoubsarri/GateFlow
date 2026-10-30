@@ -4,7 +4,7 @@ export type InviteStatus = "pending" | "leased" | "sent" | "failed" | "unknown";
 export type ParticipantStatus = "accepted" | "revoked";
 export type ConfirmationStatus = "unknown" | "confirmed" | "declined";
 export type CheckInMethod = "qr" | "manual";
-export type EntranceName = "A" | "B" | "C" | "D";
+export type EntranceName = string;
 export type AppView = "scan" | "people" | "confirmations" | "dashboard" | "settings" | "welcome-board";
 
 export interface LocalizedText {
