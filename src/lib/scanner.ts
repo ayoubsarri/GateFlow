@@ -69,6 +69,36 @@ function getActiveVideoTrack(): MediaStreamTrack | null {
   return stream.getVideoTracks()[0] || null;
 }
 
+async function applyProCameraConstraints(track: MediaStreamTrack) {
+  try {
+    const trackAny = track as unknown as {
+      getCapabilities?: () => Record<string, unknown>;
+      applyConstraints?: (constraints: MediaTrackConstraints) => Promise<void>;
+    };
+    if (typeof trackAny.getCapabilities !== "function" || typeof trackAny.applyConstraints !== "function") return;
+    const capabilities = trackAny.getCapabilities() || {};
+    const advanced: Record<string, unknown> = {};
+
+    if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes("continuous")) {
+      advanced.focusMode = "continuous";
+    }
+    if (Array.isArray(capabilities.exposureMode) && capabilities.exposureMode.includes("continuous")) {
+      advanced.exposureMode = "continuous";
+    }
+    if (Array.isArray(capabilities.whiteBalanceMode) && capabilities.whiteBalanceMode.includes("continuous")) {
+      advanced.whiteBalanceMode = "continuous";
+    }
+
+    if (Object.keys(advanced).length > 0) {
+      await trackAny.applyConstraints({
+        advanced: [advanced as unknown as MediaTrackConstraintSet]
+      });
+    }
+  } catch {
+    // Pro constraints are progressive enhancements
+  }
+}
+
 export async function startQrScanner(videoElement: HTMLVideoElement, onValue: (value: string) => void) {
   const existingPermission = await BarcodeScanner.checkPermissions();
   const permission = existingPermission.camera === "granted"
@@ -94,6 +124,14 @@ export async function startQrScanner(videoElement: HTMLVideoElement, onValue: (v
     videoElement,
     resolution: Resolution["1280x720"]
   });
+
+  // Apply pro continuous autofocus and exposure after camera pipeline initializes
+  window.setTimeout(() => {
+    const track = getActiveVideoTrack();
+    if (track) {
+      applyProCameraConstraints(track).catch(() => undefined);
+    }
+  }, 200);
 }
 
 export async function stopQrScanner() {
@@ -101,9 +139,20 @@ export async function stopQrScanner() {
     if (currentTorchState) {
       await toggleScannerTorch(false).catch(() => undefined);
     }
-    await BarcodeScanner.stopScan();
+    await BarcodeScanner.stopScan().catch(() => undefined);
   } finally {
-    await listener?.remove();
+    const track = getActiveVideoTrack();
+    if (track) {
+      try { track.stop(); } catch {}
+    }
+    if (activeVideoElement && activeVideoElement.srcObject) {
+      try {
+        const stream = activeVideoElement.srcObject as MediaStream;
+        stream.getTracks().forEach((t) => t.stop());
+        activeVideoElement.srcObject = null;
+      } catch {}
+    }
+    await listener?.remove().catch(() => undefined);
     listener = null;
     activeVideoElement = null;
     currentTorchState = false;

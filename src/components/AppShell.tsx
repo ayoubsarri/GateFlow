@@ -56,17 +56,20 @@ export function AppShell({ event, activeView, language, online, stationName, chi
               className="icon-button welcome-board-launch-btn"
               onClick={() => onViewChange("welcome-board")}
               title={language === "ar" ? "شاشة الترحيب للحضور (Kiosk / TV)" : "Public Welcome Board (Kiosk / TV)"}
+              aria-label={t.welcomeBoard}
             >
-              <Tv size={17} />
-              <span className="launch-text">{language === "ar" ? "شاشة الترحيب" : "Kiosk TV"}</span>
+              <Tv size={18} />
             </button>
-            <span className="station-chip">{t.station} {stationName}</span>
+            <span className="station-chip">
+              <span className="station-chip__label">{t.station}</span>
+              <strong>{stationName}</strong>
+            </span>
             <div className={`connection-pill ${online ? "is-online" : "is-offline"}`} title={online ? t.online : t.offline}>
-              {online ? <Wifi size={16} /> : <WifiOff size={16} />}
+              {online ? <Wifi size={15} /> : <WifiOff size={15} />}
               <span>{online ? t.online : t.offline}</span>
             </div>
-            <button className="icon-button language-toggle" onClick={() => onLanguageChange(language === "ar" ? "en" : "ar")} aria-label={t.language}>
-              <Languages size={18} />
+            <button className="icon-button language-toggle" onClick={() => onLanguageChange(language === "ar" ? "en" : "ar")} aria-label={t.language} title={t.language}>
+              <Languages size={16} />
               <span>{language === "ar" ? "EN" : "ع"}</span>
             </button>
           </div>

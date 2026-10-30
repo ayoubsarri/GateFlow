@@ -40,13 +40,13 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "INAS Check-in",
-        short_name: "INAS Check-in",
-        description: "Secure invitation and attendance check-in for INAS events.",
+        name: "GateFlow — Event Check-in",
+        short_name: "GateFlow",
+        description: "Event check-in, real-time arrival velocity, and badge management system.",
         theme_color: "#062f33",
         background_color: "#f3f7f5",
         display: "standalone",
-        orientation: "portrait-primary",
+        orientation: "any",
         lang: "ar",
         dir: "rtl",
         start_url: "/",
@@ -73,10 +73,33 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ["**/*.{js,css,html,png,svg,woff2,wasm}"],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.googleapis\.com\//,
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "google-fonts-stylesheets"
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts",
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/(?:firestore|identitytoolkit)\.googleapis\.com\/.*/,
             handler: "NetworkOnly"
           },
           {

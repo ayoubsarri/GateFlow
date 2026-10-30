@@ -1,7 +1,6 @@
-import { Check, CircleAlert, Flashlight, LoaderCircle, QrCode, Radio, RefreshCw, RotateCcw, ScanLine, Video, VideoOff, X, Zap, ShieldCheck, MapPin } from "lucide-react";
+import { Check, CircleAlert, Flashlight, LoaderCircle, QrCode, RefreshCw, RotateCcw, ScanLine, Video, VideoOff, X, Zap, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { MeshPairingModal } from "../components/MeshPairingModal";
 import { createRequestId, formatEventTime } from "../lib/domain";
 import { copy } from "../lib/i18n";
 import { enqueueOfflineScan, flushOfflineQueue, isNetworkFailure } from "../lib/offlineQueue";
@@ -59,10 +58,6 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
   const [burstCount, setBurstCount] = useState<number>(0);
   const [burstStartTime, setBurstStartTime] = useState<number>(() => Date.now());
 
-  // P2P Mesh State
-  const [peerCount, setPeerCount] = useState<number>(0);
-  const [showMeshModal, setShowMeshModal] = useState<boolean>(false);
-
   const wasScanningRef = useRef(false);
   const autoDismissTimerRef = useRef<number | null>(null);
 
@@ -88,18 +83,6 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
   }, []);
 
   useEffect(() => () => void stop(), [stop]);
-
-  // Subscribe to P2P Mesh peer count
-  useEffect(() => {
-    const unsubPeers = p2pMesh.onPeerCountChange(setPeerCount);
-    const unsubMesh = p2pMesh.subscribe((event) => {
-      console.log(`[GateFlow Mesh] Inbound check-in received from Station ${event.stationName}:`, event.participantName);
-    });
-    return () => {
-      unsubPeers();
-      unsubMesh();
-    };
-  }, []);
 
   // Handle visibility changes (phone calls, screen lock) and auto-resume
   useEffect(() => {
@@ -417,42 +400,32 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
     <section className="scan-screen-v2">
       {/* Top Operations & Gate Context Strip */}
       <div className="gate-ops-bar">
-        {/* Current Gate Badge */}
-        <div className="gate-ident-chip">
-          <MapPin size={15} />
-          <strong>{isAr ? `المدخل ${currentStation}` : `Gate ${currentStation}`}</strong>
+        {/* Gate Letter Badge (Letter only) */}
+        <div className="gate-letter-badge" title={isAr ? `المدخل ${currentStation}` : `Gate ${currentStation}`}>
+          <span className="gate-letter-char">{currentStation}</span>
         </div>
 
-        {/* Speed-Gate Burst Mode Toggle */}
-        <button
-          className={`speed-gate-toggle-v2 ${speedGate ? "active" : ""}`}
-          onClick={toggleSpeedGate}
-          title={isAr ? "وضع السرعة الفائقة للمسح المتتالي" : "Toggle Continuous Burst Speed Mode"}
-        >
-          <Zap size={15} />
-          <span>{isAr ? "وضع السرعة" : "Speed"}</span>
-          <b className="mode-tag">{speedGate ? (isAr ? "مفعّل" : "ON") : (isAr ? "متوقف" : "OFF")}</b>
-        </button>
+        <div className="gate-ops-actions">
+          {/* Compact Speed-Gate Mode Toggle (Icon only) */}
+          <button
+            className={`speed-gate-compact-btn ${speedGate ? "active" : ""}`}
+            onClick={toggleSpeedGate}
+            title={isAr ? (speedGate ? "وضع السرعة: مفعّل" : "وضع السرعة: متوقف") : (speedGate ? "Speed Mode: ON" : "Speed Mode: OFF")}
+            aria-label="Speed Gate"
+          >
+            <Zap size={18} />
+          </button>
 
-        {speedGate && burstCount > 0 && (
-          <div className="burst-badge-v2" title="Burst Throughput">
-            <span>{burstCount} {isAr ? "دخول" : "scans"}</span>
-            <small>· {burstVelocity}/m</small>
-            <button className="burst-reset-icon" onClick={resetBurstSession} title="Reset Counter">
-              <RotateCcw size={11} />
-            </button>
-          </div>
-        )}
-
-        {/* P2P Mesh Gate Sync Indicator */}
-        <button
-          className={`p2p-mesh-pill ${peerCount > 0 ? "connected" : ""}`}
-          onClick={() => setShowMeshModal(true)}
-          title={isAr ? "حالة الربط بين المداخل عند انقطاع الإنترنت" : "P2P Gate Mesh Sync Status"}
-        >
-          <Radio size={14} />
-          <span>{peerCount > 0 ? `${peerCount} ${isAr ? "مداخل" : "Gates"}` : (isAr ? "P2P شبكة" : "Mesh")}</span>
-        </button>
+          {speedGate && burstCount > 0 && (
+            <div className="burst-badge-v2" title="Burst Throughput">
+              <span>{burstCount} {isAr ? "دخول" : "scans"}</span>
+              <small>· {burstVelocity}/m</small>
+              <button className="burst-reset-icon" onClick={resetBurstSession} title="Reset Counter">
+                <RotateCcw size={11} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {conflictNotice && (
@@ -616,15 +589,6 @@ export function ScanScreen({ language, status, client, online }: ScanScreenProps
           </button>
         </div>
       </form>
-
-      {/* P2P Local Mesh Pairing Modal */}
-      {showMeshModal && (
-        <MeshPairingModal
-          language={language}
-          peerCount={peerCount}
-          onClose={() => setShowMeshModal(false)}
-        />
-      )}
     </section>
   );
 }

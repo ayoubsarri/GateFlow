@@ -148,8 +148,8 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
             <BrandLogo />
           </div>
           <div className="wb-brand-text">
-            <span className="wb-pill-label">ALGIERS 2026</span>
-            <strong className="wb-title-text">INAS ANNUAL PLENARY</strong>
+            <span className="wb-pill-label">{event.date || "LIVE SUMMIT"}</span>
+            <strong className="wb-title-text">{event.title[language] || event.title.en || event.title.ar || "CONFERENCE & SUMMIT"}</strong>
           </div>
         </div>
 
@@ -265,24 +265,28 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
           </article>
         ) : (
           <article className="wb-idle-monument">
-            <span className="wb-summit-badge">NATIONAL SCIENTIFIC CONVENTION · ALGIERS</span>
+            <span className="wb-summit-badge">{event.topic?.[language] || event.topic?.en || event.topic?.ar || "OFFICIAL SUMMIT & CONFERENCE"}</span>
 
             <h1 className="wb-summit-arabic-title">
-              الملتقى الوطني لشبكة العلماء والخبراء الجزائريين
+              {event.title.ar || event.title[language]}
             </h1>
 
             <h2 className="wb-summit-english-title">
-              INAS Annual Plenary & Science Summit 2026
+              {event.title.en || event.title[language]}
             </h2>
 
-            <p className="wb-summit-sub">
-              Higher Education, Research Quality & Global Innovation
-            </p>
+            {event.subtitle && (
+              <p className="wb-summit-sub">
+                {event.subtitle[language] || event.subtitle.en || event.subtitle.ar}
+              </p>
+            )}
 
-            <div className="wb-venue-pill">
-              <MapPin size={16} className="text-gold" />
-              <span>Palais de la Culture Moufdi Zakaria · Algiers</span>
-            </div>
+            {event.venue && (
+              <div className="wb-venue-pill">
+                <MapPin size={16} className="text-gold" />
+                <span>{event.venue[language] || event.venue.en || event.venue.ar}</span>
+              </div>
+            )}
 
             {/* Clean Live Gate Throughput Ribbon (Integrated subtly) */}
             <div className="wb-gate-summary-row">
@@ -301,32 +305,6 @@ export function WelcomeBoardScreen({ language, event, recent, participants, onBa
           </article>
         )}
       </main>
-
-      {/* Bottom Fluid Arrivals Marquee */}
-      <footer className="wb-bottom-marquee">
-        <div className="wb-marquee-title">
-          <span className="wb-live-pulse-dot" />
-          <span>RECENT ARRIVALS · سجل الوصول المباشر</span>
-        </div>
-
-        <div className="wb-marquee-track">
-          <div className="wb-marquee-content">
-            {recent.length > 0 ? (
-              recent.slice(0, 15).map((record) => (
-                <div className="wb-arrival-chip" key={record.id}>
-                  <span className="wb-chip-gate">GATE {record.stationName || "A"}</span>
-                  <strong className="wb-chip-name">{formatDisplayName(record.participantName)}</strong>
-                  <time className="wb-chip-time">
-                    {new Date(record.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </time>
-                </div>
-              ))
-            ) : (
-              <span className="wb-marquee-empty">Awaiting incoming delegates at all gates...</span>
-            )}
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
