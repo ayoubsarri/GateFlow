@@ -1,7 +1,12 @@
-# GateFlow — Ultra-Fast, Offline-First QR Event Check-in PWA
+# GateFlow — Ultra-Fast, Offline-First QR Event Check-in & Gate Management System
 
 <p align="center">
-  <strong>Production-grade, offline-resilient event gate management and QR check-in application built with React, Vite, TypeScript, and Firebase.</strong>
+  <strong>Production-grade, offline-resilient event check-in, real-time arrival velocity, and gate telemetry platform built with React, Vite, TypeScript, and Firebase.</strong>
+</p>
+
+<p align="center">
+  <a href="https://qr-scan-2501b.web.app"><img src="https://img.shields.io/badge/Live_App-qr--scan--2501b.web.app-074643?style=for-the-badge&logo=firebase&logoColor=white" alt="Live App" /></a>
+  <a href="https://qr-scan-2501b.web.app/#welcome-board"><img src="https://img.shields.io/badge/TV_Welcome_Board-Live_Kiosk-dfad24?style=for-the-badge&logo=googlechrome&logoColor=black" alt="Live Welcome Board" /></a>
 </p>
 
 <p align="center">
@@ -11,55 +16,75 @@
   <img src="https://img.shields.io/badge/Firebase-Firestore_%26_Hosting-FFCA28?logo=firebase&logoColor=black" alt="Firebase" />
   <img src="https://img.shields.io/badge/PWA-Offline_First-5A0FC8?logo=pwa&logoColor=white" alt="PWA" />
   <img src="https://img.shields.io/badge/Language-Arabic_%26_English-074643" alt="Bilingual RTL/LTR" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
 </p>
 
 ---
 
-## 📱 Mobile Visual Showcase
+## 📺 Public Welcome Board Kiosk (1080p / 4K Kiosk Screen)
+
+GateFlow includes a standalone public screen view (`#welcome-board`) engineered for auditorium entrance projectors, LED displays, and reception TV kiosks.
+
+<p align="center">
+  <img src="docs/screenshots/welcome_board_1080p.png" width="95%" alt="GateFlow Public Welcome Board Kiosk (1080p/4K)" />
+</p>
+
+- **Real-Time Delegate Salute**: Automatically flashes a monumental welcome card when an attendee scans in at any entrance, showing their full name, academic affiliation, entrance gate, and entry timestamp.
+- **Dynamic Event Theming**: Automatically driven by the event record metadata (`title`, `topic`, `subtitle`, `venue`, `date`) — adapts instantly to any conference or summit without hardcoded text.
+- **Attendance & Velocity Telemetry**: Live delegate counter (`143 / 255 DELEGATES ARRIVED · 56% SEATED`), real-time precision seconds clock, and privacy masking mode.
+
+---
+
+## 📱 Mobile Visual Showcase (Samsung Galaxy S24 & iOS PWA)
 
 <p align="center">
   <img src="docs/screenshots/mobile_scan.png" width="23%" alt="Continuous Camera Scanner (Arabic RTL)" />
   &nbsp;
-  <img src="docs/screenshots/mobile_attendees.png" width="23%" alt="Attendee Directory & Search" />
-  &nbsp;
-  <img src="docs/screenshots/mobile_dashboard.png" width="23%" alt="Real-time Arrival Analytics" />
-  &nbsp;
   <img src="docs/screenshots/mobile_scan_en.png" width="23%" alt="Continuous Camera Scanner (English LTR)" />
+  &nbsp;
+  <img src="docs/screenshots/mobile_settings.png" width="23%" alt="Dynamic Gate & Entrance Manager" />
+  &nbsp;
+  <img src="docs/screenshots/mobile_dashboard.png" width="23%" alt="Real-time Arrival Velocity Analytics" />
 </p>
 
 <p align="center">
-  <em>(Screenshots captured directly from the live PWA running on mobile viewport)</em>
+  <em>(Screenshots captured directly from the live production PWA running on mobile viewports)</em>
 </p>
 
 ---
 
 ## ⚡ Core Features & Engineering Highlights
 
-### 🚀 Continuous HUD Camera Scanning (< 0.8s Cycle Time)
-- **Zero Hardware Teardown**: Unlike conventional check-in apps that shut down the camera sensor after each scan, the camera stream remains continuously active.
-- **Transient Status Card**: Verification feedback (green valid, gold duplicate, red invalid) displays via a lightweight HUD card with a 2.6s auto-dismiss. Staff can scan hundreds of attendees consecutively without touching the device screen.
-- **In-Memory Cooldown Cache**: An LRU debounce filter blocks multi-frame duplicate reads of the same ticket within 3.5 seconds, eliminating false "Already Checked In" race conditions.
+### 🚀 Continuous "Speed-Gate" Burst Scanning (< 0.5s Throughput)
+- **Zero Sensor Teardown**: Keeps the camera sensor active continuously throughout high-throughput arrival rushes.
+- **Pro Hardware Camera Pipeline**: Injects continuous autofocus (`focusMode: "continuous"`), auto exposure (`exposureMode: "continuous"`), and auto white balance via `MediaStreamTrack.applyConstraints`.
+- **Transient HUD Feedback**: Instant status cues (green verified, amber duplicate, red invalid) display via a floating card with auto-dismiss timers, freeing staff from touching screens between scans.
+- **In-Memory Cooldown Cache**: 3.5-second LRU debounce prevents double-reads of the same ticket without delaying scans of subsequent attendees.
+
+### 🚪 Dynamic Gate & Entrance Management
+- **Custom Gate Provisioning**: Add custom entrances (e.g., Gate A, B, C, VIP, Hall 2) on the fly in Settings without redeploying code.
+- **Instant Switching & Deletion**: Toggle active entrances, delete unused gates, and automatically persist entrance configurations to local storage with multi-station auth routing.
+
+### 📊 Real-Time Arrival Velocity & Gate Distribution
+- **Rolling Arrival Velocity**: Calculates check-in speed (delegates/minute) in real-time over 5-minute and 15-minute rolling windows.
+- **Peak Velocity Tracking**: Automatically identifies peak check-in bottlenecks across historical ingress intervals.
+- **Multi-Gate Ingress Distribution**: Compares delegate load across all active gates to balance line congestion in real time.
 
 ### 📶 Offline-First Resiliency & WASM Barcode Detection
-- **Self-Contained Offline WebAssembly**: Pre-caches `zxing_reader.wasm` directly within the Service Worker Cache Storage (`workbox-precache-v2`). iOS Safari and Android browsers decode QR codes completely offline without relying on external CDN fallbacks.
-- **Deadlock-Free Offline Queue**: Scans recorded during network dropouts or "Lie-Fi" conditions (where cellular data connects but drops packets) are safely queued in local storage and synchronized sequentially upon reconnect.
-- **Poison-Pill Quarantine**: Corrupted or permanently failing items are automatically moved to a local Dead Letter Queue after 3 attempts, guaranteeing the sync queue never freezes.
-- **Offline Duplicate Conflict Alerts**: If an attendee is admitted offline at Gate A while simultaneously checked in at Gate B, the sync engine alerts gate staff immediately upon reconnection.
+- **Self-Contained Offline WebAssembly**: Pre-caches `zxing_reader.wasm` directly in Service Worker Cache Storage (`workbox-precache-v2`). Decodes QR codes completely offline without relying on external CDN connections.
+- **Deadlock-Free Offline Queue**: Scans recorded during Wi-Fi drops or "Lie-Fi" conditions are safely queued in local storage and synchronized sequentially upon reconnect.
+- **Offline Duplicate Conflict Alerts**: If an attendee is admitted offline at Gate A while simultaneously checked in at Gate B, gate staff receive an immediate alert upon synchronization.
 
-### 🔦 Mobile Hardware Integration
-- **Screen Wake Lock API**: Automatically requests `navigator.wakeLock` to prevent phone displays from dimming or locking during gate shifts.
-- **Native Torch / Flashlight Control**: Directly controls device flash hardware via `MediaStreamTrack.applyConstraints({ advanced: [{ torch }] })` for low-light venue entrances.
-- **Lifecycle Auto-Resume**: Seamlessly pauses camera streaming when an incoming call or tab switch occurs, and automatically resumes when the app returns to the foreground.
-- **Audio & Haptic Feedback**: Delivers distinct affirmative and negative audio tones via a shared Web Audio oscillator, supplemented by vibration patterns on supported devices.
+### 🔤 Bespoke Editorial Typography & Bilingual Design System
+- **Alexandria**: Ultra-clean, modern geometric Arabic typeface crafted for high-legibility signage and apps.
+- **Plus Jakarta Sans**: Crisp, international geometric Latin typography.
+- **JetBrains Mono**: Precision monospace font for badge codes, gate letters, and real-time clocks.
+- **Zero Text Overflow**: All buttons, status chips, and badges are proportioned with standardized heights and radii for seamless responsiveness across phone, tablet, and TV screens.
 
-### 🛡️ Enterprise Security & Concurrency Invariants
-- **Cryptographic Ticket Privacy**: Badges encode only `INAS1.<eventId>.<random-256bit-token>`. Attendee names, emails, and phone numbers are never stored in QR codes.
-- **Optimistic Concurrency Control**: All check-in operations run as atomic Firestore transactions (`runTransaction`), strictly serializing concurrent scans across multiple entrances down to the millisecond.
-- **Scoped Diff Keys in Security Rules**: Firestore security rules restrict update payloads by operation type: check-in transactions can only touch check-in timestamp and station identity fields, preventing attendee profile tampering.
-
-### 🌍 First-Class Bilingual Arabic (RTL) & English (LTR)
-- **Native Right-to-Left Layout**: Built from the ground up for Arabic-speaking conferences and venues with full RTL flex/grid alignment and typography.
-- **Instant Language Toggle**: One-tap toggle instantly switches the entire interface to English (LTR) for international staff and attendees.
+### 🛡️ Enterprise Security & Invariants
+- **Cryptographic Ticket Privacy**: Badges encode only `INAS1.<eventId>.<random-256bit-token>`. Attendee PII (names, phone numbers, emails) is never exposed in raw QR codes.
+- **Atomic Firestore Transactions**: Check-ins execute via `runTransaction`, strictly serializing concurrent scans across multiple entrances down to the millisecond.
+- **Scoped Diff Keys**: Firestore security rules restrict update operations by type, ensuring check-in transactions can only update check-in timestamps and gate identifiers.
 
 ---
 
@@ -67,22 +92,24 @@
 
 ```mermaid
 flowchart TD
-    subgraph Client [Mobile PWA Client]
-        Camera[Camera Stream / MediaStream] --> Debounce[3.5s LRU Cooldown Cache]
-        Debounce --> WASM[Local ZXing WASM Detector]
+    subgraph Client [GateFlow Mobile PWA Client]
+        Camera[Continuous Camera Feed] --> ProConstraints[Continuous Autofocus & Exposure]
+        ProConstraints --> Debounce[3.5s LRU Cooldown Filter]
+        Debounce --> WASM[Local ZXing WASM Barcode Detector]
         WASM --> NetworkCheck{Online?}
-        NetworkCheck -- No / Lie-Fi --> OfflineQueue[(Offline Queue Storage)]
+        NetworkCheck -- No / Lie-Fi --> OfflineQueue[(Offline Storage Queue)]
         OfflineQueue -- Auto-Sync on Reconnect --> TxCommit
         NetworkCheck -- Yes --> TxCommit[Firestore Atomic Transaction]
-        TxCommit --> HUD[Transient Floating HUD]
-        TxCommit --> AudioHaptic[Audio & Haptic Feedback]
+        TxCommit --> HUD[Transient Floating Status HUD]
+        TxCommit --> AudioHaptic[Audio & Haptic Chimes]
     end
 
     subgraph Firebase [Firebase Cloud Infrastructure]
         TxCommit --> Rules{Firestore Security Rules}
         Rules -- Scoped Diff Keys Valid --> DB[(Firestore Documents)]
         DB --> Listeners[Real-Time Snapshot Listeners]
-        Listeners --> LiveDashboard[Live Organizer Dashboard]
+        Listeners --> LiveDashboard[Live Stats & Velocity Engine]
+        Listeners --> WelcomeBoard[Public 4K Welcome Board Kiosk]
     end
 ```
 
@@ -94,34 +121,38 @@ flowchart TD
 ├── public/                     # Static assets, icons, PWA manifest, and ZXing WASM
 │   ├── inas-icon-192.png       # PWA app icons (192x192, 512x512)
 │   ├── inas-logo.png           # High-resolution vector branding
+│   ├── audience-hall.jpg       # High-definition venue ambient background for Kiosk
 │   └── zxing_reader.wasm       # Offline-first BarcodeDetector WASM binary (1.09 MB)
 ├── src/
-│   ├── assets/                 # Embedded SVG graphics and logos
+│   ├── assets/                 # Embedded SVG graphics and branding
 │   ├── components/             # Reusable UI components (AppShell, LoginScreen, BrandLogo)
 │   ├── data/                   # Demo datasets, schedules, and test tickets
 │   ├── lib/
 │   │   ├── api.ts              # Firebase client SDK, transactions, and session engine
 │   │   ├── domain.ts           # Business logic, Arabic normalization, statistics calculation
+│   │   ├── entrances.ts        # Dynamic Gate & Entrance manager
 │   │   ├── firebase.ts         # Firebase initialization with multi-tab IndexedDB cache
 │   │   ├── i18n.ts             # Bilingual Arabic / English copy dictionaries
 │   │   ├── invitationPdf.ts    # Secure client-side ticket PDF rendering engine
 │   │   ├── offlineQueue.ts     # Resilient, deadlock-free offline sync queue
-│   │   └── scanner.ts          # Camera hardware lifecycle, native torch & wake lock
+│   │   ├── p2pMesh.ts          # Local WebRTC P2P Mesh invariant sync engine
+│   │   └── scanner.ts          # Pro camera hardware lifecycle, autofocus & wake lock
 │   ├── screens/                # Core screens
-│   │   ├── ScanScreen.tsx      # Continuous HUD camera scanner & manual code entry
+│   │   ├── ScanScreen.tsx      # Speed-Gate burst scanner & manual entry dock
 │   │   ├── PeopleScreen.tsx    # Paginated attendee directory & instant search
 │   │   ├── ConfirmationsScreen.tsx # RSVP status tracking & confirmation notes
-│   │   ├── DashboardScreen.tsx # Real-time analytics, arrival charts & station metrics
-│   │   └── SettingsScreen.tsx  # Entrance switching, dark/light, station logout
-│   ├── styles.css              # Custom responsive stylesheet (RTL & LTR)
-│   ├── App.tsx                 # Root application shell & routing
+│   │   ├── DashboardScreen.tsx # Real-time velocity analytics, arrival charts & gate stats
+│   │   ├── SettingsScreen.tsx  # Dynamic gate manager, language toggle, app download
+│   │   └── WelcomeBoardScreen.tsx # Public 1080p/4K TV Welcome Board screen
+│   ├── styles.css              # Custom responsive stylesheet (Alexandria + Plus Jakarta Sans)
+│   ├── App.tsx                 # Root application shell & view routing
 │   └── main.tsx                # Entry point, Service Worker registration & persistence
 ├── functions/                  # Cloud Functions (Backend verification & admin tools)
 ├── email-automation/           # (Optional) Google Apps Script batch email invitation console
-├── docs/screenshots/           # Mobile viewport screenshot showcase
+├── docs/screenshots/           # High-resolution mobile & TV screenshot showcase
 ├── firebase.json               # Firebase Hosting headers (CSP, HSTS, WASM caching)
 ├── firestore.rules             # Production security rules with scoped diff key validation
-└── vite.config.ts              # Vite PWA configuration with Workbox precache rules
+└── vite.config.ts              # Vite PWA configuration with Workbox font caching rules
 ```
 
 ---
@@ -137,8 +168,8 @@ flowchart TD
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/your-username/fastgate-pwa.git
-cd fastgate-pwa
+git clone https://github.com/ayoubsarri/GateFlow.git
+cd GateFlow
 npm install
 ```
 
@@ -162,7 +193,7 @@ VITE_ENTRANCE_A_EMAIL=station-a@your-domain.org
 VITE_ENTRANCE_B_EMAIL=station-b@your-domain.org
 ```
 
-> **Note**: Without Firebase credentials configured, the app runs in an interactive **Offline Demo Mode** with mock attendees, allowing full UI and feature testing out of the box.
+> **Note**: Without Firebase credentials configured, GateFlow runs automatically in an interactive **Offline Demo Mode** with mock attendees, allowing full UI and feature testing out of the box.
 
 ### 3. Run Development Server
 ```bash
@@ -170,9 +201,14 @@ npm run dev
 ```
 Open your browser at `http://localhost:5173`.
 
+To preview the TV Welcome Board Kiosk directly:
+```
+http://localhost:5173/#welcome-board
+```
+
 ### 4. Run Automated Tests
 ```bash
-npm test
+npm run test:web
 ```
 Executes the Vitest test suite covering domain normalization, statistics calculation, and attendance invariants.
 
@@ -180,16 +216,16 @@ Executes the Vitest test suite covering domain normalization, statistics calcula
 ```bash
 npm run build
 ```
-Compiles TypeScript, bundles code into optimized chunks (`scanner`, `firebase`, `icons`, `ui`), and generates the Workbox Service Worker precaching the WASM reader.
+Compiles TypeScript, bundles code into optimized chunks (`scanner`, `firebase`, `icons`, `ui`), and generates the Workbox Service Worker precaching the WASM reader and Google Fonts.
 
 ---
 
 ## 🌐 Production Deployment
 
-Deploy to Firebase with a single command:
+Deploy to Firebase Hosting with a single command:
 
 ```bash
-firebase deploy --only hosting,firestore:rules
+npx firebase deploy --only hosting,firestore:rules
 ```
 
 The configuration in `firebase.json` automatically establishes:
@@ -199,17 +235,14 @@ The configuration in `firebase.json` automatically establishes:
 
 ---
 
-## ✉️ Email Automation Pipeline (`email-automation/`)
+## 🏛️ Proven In Production
 
-For pre-event badge distribution, a separate Google Apps Script automation suite is included in [`email-automation/`](email-automation/):
-- Sends personalized digital invitations with embedded QR codes in safe, resumable batches (up to 25 emails per batch).
-- Integrates a **bot-safe confirmation web app** (`Confirm.gs`) that protects against automated enterprise email spam scanners accidentally confirming attendance.
-- All template configurations and environment values are sanitized and ready for private Google Cloud project linkage.
+**GateFlow** was originally deployed as the official check-in and gate management system for the **INAS National Quality Forum 2026** (*الملتقى الوطني لضمان الجودة*), organized by the **International Network of Algerian Scientists and Experts (INAS)** at **HIS University in Algiers**. 
+
+The software processed attendee registrations seamlessly across multiple simultaneous venue entrances with zero downtime, zero scan bottlenecks, and real-time welcome projections.
 
 ---
 
-## 🏛️ About The Event
+## 📄 License
 
-**FastGate** was originally engineered as the official check-in and gate management system for the **INAS National Quality Forum 2026** (*الملتقى الوطني لضمان الجودة*), organized by the **International Network of Algerian Scientists and Experts (INAS)**. 
-
-Held at **HIS University in Algiers**, the event brought together university rectors, professors, quality assurance directors, and international researchers to evaluate ISO 9001:2015 implementation across higher education and research institutions. The software processed attendee registrations seamlessly across multiple simultaneous venue entrances with zero downtime.
+Licensed under the [MIT License](LICENSE).
