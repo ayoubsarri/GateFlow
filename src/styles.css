@@ -2893,131 +2893,13 @@ body.scanner-active .scanner-card {
   letter-spacing: 0.5px;
 }
 
-.login-role-segmented {
-  display: flex;
-  background: rgba(0, 0, 0, 0.04);
-  padding: 4px;
-  border-radius: 10px;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-
-.login-role-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 7px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.login-role-btn.active {
-  background: #ffffff;
-  color: var(--brand);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.admin-login-notice {
-  background: #fefce8;
-  border: 1px solid #fef08a;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.admin-login-notice small {
-  color: #854d0e;
-  font-size: 0.78rem;
+.login-subtle-hint {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 0.77rem;
+  color: #94a3b8;
   font-weight: 600;
-}
-
-.login-hint-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #f1f5f9;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.74rem;
-  color: #475569;
-  font-family: monospace;
-}
-
-/* Theme Swatches */
-.theme-swatch-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 8px;
-  width: 100%;
-  margin-top: 10px;
-}
-
-.theme-pill-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s ease;
-}
-
-[dir="rtl"] .theme-pill-item {
-  text-align: right;
-}
-
-.theme-pill-item:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.theme-pill-item.active {
-  background: rgba(7, 70, 67, 0.08);
-  border-color: var(--brand);
-  box-shadow: 0 0 0 1px var(--brand);
-}
-
-.theme-swatch-colors {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.swatch-circle {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-}
-
-.theme-name-label {
-  flex: 1;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #1e293b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.theme-active-dot {
-  font-size: 0.85rem;
-  font-weight: 900;
-  color: var(--brand);
+  letter-spacing: 0.2px;
 }
 
 /* Event Screen Layout */

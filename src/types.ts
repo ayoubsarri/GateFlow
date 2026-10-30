@@ -9,17 +9,6 @@ export type EntranceName = string;
 export type AppView = "scan" | "people" | "confirmations" | "dashboard" | "event" | "settings" | "welcome-board";
 export type ParticipantCategory = "delegate" | "vip" | "speaker" | "press" | "organizer";
 
-export type ThemeName = "teal" | "indigo" | "sapphire" | "slate" | "crimson" | "emerald";
-
-export interface ThemeOption {
-  id: ThemeName;
-  name: LocalizedText;
-  brand: string;
-  brandDeep: string;
-  gold: string;
-  surface: string;
-}
-
 export interface LocalizedText {
   ar: string;
   en: string;
